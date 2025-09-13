@@ -1,0 +1,69 @@
+🚀 Python Project Test Automation Report
+Generated: 2025-09-13 11:46:16
+Model Used: llama-3.3-70b-versatile
+Execution Time: 2.38 seconds
+Status: SUCCESS
+
+============================================================
+
+📁 CHANGED FILES:
+
+  1. main.py
+
+🔍 ANALYZED FUNCTIONS/METHODS (6 total):
+
+  1. Function: add_numbers
+     File: main.py (lines 4-15)
+
+  2. Function: is_prime
+     File: main.py (lines 17-32)
+
+  3. Function: capitalize_string
+     File: main.py (lines 34-44)
+
+  4. Method: multiply (Class: Calculator)
+     File: main.py (lines 48-49)
+
+  5. Method: divide (Class: Calculator)
+     File: main.py (lines 51-54)
+
+  6. Method: power (Class: Calculator)
+     File: main.py (lines 56-67)
+
+🧪 TEST RESULTS:
+  Status: SUCCESS
+
+📊 COVERAGE METRICS:
+
+  Total Coverage: 68
+
+📝 EXECUTION LOGS:
+
+  [2025-09-13 11:46:14] [INFO] 🚀 Starting Python Project Test Automation
+  [2025-09-13 11:46:14] [INFO] 📁 Detected 1 changed files: main.py
+  [2025-09-13 11:46:14] [INFO] 🔍 Analyzing changed file: main.py
+  [2025-09-13 11:46:14] [INFO] 🤖 Found 6 functions/methods to test using llama-3.3-70b-versatile
+  [2025-09-13 11:46:14] [INFO] 🧠 Generating test cases using llama-3.3-70b-versatile...
+  [2025-09-13 11:46:15] [INFO] ✔️ Formatted: pr_generated_tests.py
+  [2025-09-13 11:46:15] [SUCCESS] ✅ Generated and saved tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-13 11:46:15] [INFO] 🏃 Executing generated tests with coverage analysis...
+  [2025-09-13 11:46:15] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-13 11:46:16] [SUCCESS] ✅ Tests passed.
+  [2025-09-13 11:46:16] [INFO] 
+📊 Code Coverage Report (Changed Files Only):
+  [2025-09-13 11:46:16] [INFO] Name                                                                      Stmts   Miss  Cover
+---------------------------------------------------------------------------------------------
+/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/unittest/main.py     160     58    64%
+main.py                                                                      20      0   100%
+---------------------------------------------------------------------------------------------
+TOTAL                                                                       180     58    68%
+
+  [2025-09-13 11:46:16] [INFO] 📄 Detailed HTML coverage report generated in 'htmlcov/' directory
+  [2025-09-13 11:46:16] [INFO] 
+🎯 Changed Files Code Coverage: 68%
+  [2025-09-13 11:46:16] [WARNING] 🟠 Moderate coverage, more tests recommended
+  [2025-09-13 11:46:16] [INFO] 📄 JSON report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-13_11-46-16.json
+  [2025-09-13 11:46:16] [INFO] 📄 XML report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-13_11-46-16.xml
+
+============================================================
+Report completed at: 2025-09-13 11:46:16
