@@ -15,8 +15,9 @@ jobs:
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0  # Fetch full history
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}  # Checkout the PR branch
 
       - name: ⚙️ Set up Python
         uses: actions/setup-python@v5
@@ -75,7 +76,8 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "📊 Add automated test reports [skip ci]"
-            git push
+            # Push to the PR branch (head_ref)
+            git push origin HEAD:${{ github.head_ref }}
           fi
 
       - name: 📋 Comment PR with Report Summary
