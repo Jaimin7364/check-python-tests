@@ -10,7 +10,12 @@ def reverse_string(s):
 
     Returns:
         str: The reversed string.
+    
+    Raises:
+        TypeError: If input is not a string.
     """
+    if not isinstance(s, str):
+        raise TypeError(f"Expected string, got {type(s).__name__}")
     return s[::-1]
 
 # Example usage (for demonstration and local testing)
