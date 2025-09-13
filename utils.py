@@ -1,13 +1,12 @@
-def sum_three_numbers(a, b, c):
+def sum_two_numbers(a, b):
     """
-    Calculates the sum of three numbers.
+    Calculates the sum of two numbers.
 
     Args:
         a (int or float): The first number.
         b (int or float): The second number.
-        c (int or float): The third number.
 
     Returns:
-        int or float: The sum of the three numbers.
+        int or float: The sum of the two numbers.
     """
-    return a + b + c
+    return a + b
