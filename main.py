@@ -65,16 +65,3 @@ class Calculator:
             int or float: The result of base ** exp.
         """
         return base ** exp
-
-    def subtract(self, a, b):
-        """
-        Subtracts the second number from the first.
-
-        Args:
-            a (int or float): The first number.
-            b (int or float): The second number.
-
-        Returns:
-            int or float: The result of a - b.
-        """
-        return a - b
