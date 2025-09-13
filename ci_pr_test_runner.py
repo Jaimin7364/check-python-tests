@@ -122,14 +122,23 @@ class ChangeAnalyzerAndTester:
 
         functions_info = []
         imports_set = set()
+        class_names = set()
+        function_names = set()
+        
         for func in functions:
             functions_info.append(f"Function/Method: {func.name}\nFile: {func.file_path}\nCode: {func.code}")
             
-            # Simple heuristic for imports
+            # Collect imports properly
             if func.class_name:
-                imports_set.add(f"from main import {func.class_name}")
+                class_names.add(func.class_name)
             else:
-                imports_set.add(f"from main import {func.name}")
+                function_names.add(func.name)
+        
+        # Generate imports
+        if function_names:
+            imports_set.add(f"from main import {', '.join(sorted(function_names))}")
+        if class_names:
+            imports_set.add(f"from main import {', '.join(sorted(class_names))}")
         
         all_imports = "\n".join(imports_set)
         
@@ -139,14 +148,19 @@ You are an expert Python unit testing engineer. Generate a comprehensive test fi
 FUNCTIONS/METHODS TO TEST:
 {chr(10).join(functions_info)}
 
+REQUIRED IMPORTS (use these exact imports):
+{all_imports}
+
 CRITICAL INSTRUCTIONS:
-1. Create a `unittest.TestCase` class for the tests.
-2. For each function or method, create a test method (e.g., `test_function_name`).
-3. Include test cases for normal behavior, edge cases, and error conditions.
-4. Use `self.assertEqual`, `self.assertTrue`, `self.assertRaises`, etc.
-5. Provide meaningful docstrings.
-6. Use a `if __name__ == '__main__':` block to run the tests.
-7. Include necessary imports from the source files.
+1. Use ONLY the imports provided above - do not make up class names or imports
+2. Create a `unittest.TestCase` class for the tests.
+3. For each function or method, create a test method (e.g., `test_function_name`).
+4. For class methods, instantiate the class in setUp() or within test methods
+5. Include test cases for normal behavior, edge cases, and error conditions.
+6. Use `self.assertEqual`, `self.assertTrue`, `self.assertRaises`, etc.
+7. Provide meaningful docstrings.
+8. Use a `if __name__ == '__main__':` block to run the tests.
+9. IMPORTANT: Only test the functions/methods that are explicitly provided in the function list above
 
 Generate ONLY the complete, runnable Python code for the test file. No explanations.
 """
@@ -171,9 +185,21 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         """Executes the generated test file."""
         print(f"🧪 Executing tests from {test_file_path}")
         try:
+            # Get the current Python executable instead of hardcoded 'python'
+            python_executable = sys.executable
+            # Set PYTHONPATH to include the project root for imports
+            env = os.environ.copy()
+            current_pythonpath = env.get('PYTHONPATH', '')
+            if current_pythonpath:
+                env['PYTHONPATH'] = f"{str(self.project_root)}:{current_pythonpath}"
+            else:
+                env['PYTHONPATH'] = str(self.project_root)
+            
             run_result = subprocess.run(
-                ['python', str(test_file_path)],
-                capture_output=True, text=True, check=True
+                [python_executable, str(test_file_path)],
+                capture_output=True, text=True, check=True,
+                cwd=str(self.project_root),
+                env=env
             )
             print("✅ Tests passed.")
             return {"status": "success", "output": run_result.stdout}
