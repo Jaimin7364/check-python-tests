@@ -1,0 +1,88 @@
+🚀 Python Project Test Automation Report
+Generated: 2025-09-13 14:36:07
+Model Used: llama-3.3-70b-versatile
+Execution Time: 2.24 seconds
+Status: FAILED
+
+============================================================
+
+📁 CHANGED FILES:
+
+  1. main.py
+  2. utils.py
+
+🔍 ANALYZED FUNCTIONS/METHODS (6 total):
+
+  1. Function: add_numbers
+     File: main.py (lines 4-15)
+
+  2. Function: is_prime
+     File: main.py (lines 17-32)
+
+  3. Function: capitalize_string
+     File: main.py (lines 34-44)
+
+  4. Method: multiply (Class: Calculator)
+     File: main.py (lines 48-49)
+
+  5. Method: power (Class: Calculator)
+     File: main.py (lines 50-61)
+
+  6. Function: subtract_three_numbers
+     File: utils.py (lines 1-13)
+
+🧪 TEST RESULTS:
+  Status: FAILURE
+
+  Test Output:
+  ────────────────────────────────────────
+  ......F....
+  ======================================================================
+  FAIL: test_multiply_error (__main__.TestFunctions)
+  Test the multiply method of the Calculator class with error conditions.
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 67, in test_multiply_error
+      with self.assertRaises(TypeError):
+  AssertionError: TypeError not raised
+  
+  ────────────────────────────────────────
+
+📊 COVERAGE METRICS:
+
+📝 EXECUTION LOGS:
+
+  [2025-09-13 14:36:05] [INFO] 🚀 Starting Python Project Test Automation
+  [2025-09-13 14:36:05] [INFO] 📁 Detected 2 changed files: main.py, utils.py
+  [2025-09-13 14:36:05] [INFO] 🔍 Analyzing changed file: main.py
+  [2025-09-13 14:36:05] [INFO] 🔍 Analyzing changed file: utils.py
+  [2025-09-13 14:36:05] [INFO] 🤖 Found 6 functions/methods to test using llama-3.3-70b-versatile
+  [2025-09-13 14:36:05] [INFO] 🧠 Generating test cases using llama-3.3-70b-versatile...
+  [2025-09-13 14:36:07] [INFO] ✔️ Formatted: pr_generated_tests.py
+  [2025-09-13 14:36:07] [SUCCESS] ✅ Generated and saved tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-13 14:36:07] [INFO] 🏃 Executing generated tests with coverage analysis...
+  [2025-09-13 14:36:07] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-13 14:36:07] [ERROR] ❌ Tests failed.
+  [2025-09-13 14:36:07] [ERROR] --- Test Output ---
+  [2025-09-13 14:36:07] [ERROR] 
+  [2025-09-13 14:36:07] [ERROR] ......F....
+======================================================================
+FAIL: test_multiply_error (__main__.TestFunctions)
+Test the multiply method of the Calculator class with error conditions.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 67, in test_multiply_error
+    with self.assertRaises(TypeError):
+AssertionError: TypeError not raised
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.001s
+
+FAILED (failures=1)
+
+  [2025-09-13 14:36:07] [ERROR] -------------------
+  [2025-09-13 14:36:07] [INFO] 📄 JSON report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-13_14-36-07.json
+  [2025-09-13 14:36:07] [INFO] 📄 XML report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-13_14-36-07.xml
+
+============================================================
+Report completed at: 2025-09-13 14:36:07
