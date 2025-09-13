@@ -216,14 +216,22 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             # Run tests with coverage only for changed Python files
             coverage_file = self.project_root / ".coverage"
             
-            # Build coverage command with specific source files
-            coverage_cmd = [python_executable, "-m", "coverage", "run"]
-            
-            # Add each changed Python file as a source
-            for py_file in python_changed_files:
-                coverage_cmd.extend(["--source", py_file])
-            
-            coverage_cmd.append(str(test_file_path))
+            if python_changed_files:
+                # Build coverage command with specific source files
+                # Use --include pattern to only measure coverage for changed files
+                include_patterns = ','.join(python_changed_files)
+                coverage_cmd = [
+                    python_executable, "-m", "coverage", "run", 
+                    f"--include={include_patterns}",
+                    str(test_file_path)
+                ]
+            else:
+                # Fallback to general coverage if no Python files changed
+                coverage_cmd = [
+                    python_executable, "-m", "coverage", "run", 
+                    "--source=.",
+                    str(test_file_path)
+                ]
             
             # First, run the tests with coverage
             run_result = subprocess.run(
