@@ -10,7 +10,6 @@ from typing import Dict, List, Set, Tuple, Optional
 from dataclasses import dataclass, field
 
 from groq import Groq
-from groq.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 # --- Configuration ---
 # Use an environment variable for the Groq API Key
@@ -99,7 +98,7 @@ class ChangeAnalyzerAndTester:
             # Groq API call
             chat_completion = self.client.chat.completions.create(
                 messages=[
-                    ChatCompletionMessageParam(role="user", content=prompt),
+                    {"role": "user", "content": prompt},
                 ],
                 model=MODEL_ID,
                 temperature=0.1,
