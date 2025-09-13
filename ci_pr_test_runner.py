@@ -33,6 +33,9 @@ class ChangeAnalyzerAndTester:
     """
     def __init__(self):
         self.project_root = Path(os.getcwd())
+        # Add project root to the Python path
+        sys.path.insert(0, str(self.project_root))
+        
         self.test_dir = self.project_root / DEFAULT_TEST_DIR
         self.test_dir.mkdir(exist_ok=True)
         self.client = boto3.client("bedrock-runtime", region_name=REGION_NAME)
@@ -124,9 +127,9 @@ class ChangeAnalyzerAndTester:
             
             # Simple heuristic for imports
             if func.class_name:
-                imports_set.add(f"from {func.file_path.replace(os.path.sep, '.').replace('.py', '')} import {func.class_name}")
+                imports_set.add(f"from main import {func.class_name}")
             else:
-                imports_set.add(f"from {func.file_path.replace(os.path.sep, '.').replace('.py', '')} import {func.name}")
+                imports_set.add(f"from main import {func.name}")
         
         all_imports = "\n".join(imports_set)
         
