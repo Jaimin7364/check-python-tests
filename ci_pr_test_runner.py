@@ -25,7 +25,7 @@ LLM_PROVIDERS = {
     },
     "groq": {
         "url": "https://api.groq.com/openai/v1/chat/completions",
-        "model": "llama3-8b-8192",
+        "model": "llama-3.1-8b-instant",
         "headers": lambda api_key: {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -198,32 +198,69 @@ class ChangeAnalyzerAndTester:
             
         except requests.exceptions.RequestException as e:
             print(f"❌ Error calling {self.llm_provider} API: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    print(f"API Error Details: {error_detail}")
+                except:
+                    print(f"Response text: {e.response.text}")
+            print("💡 Falling back to mock test generation")
             return self._generate_mock_test_code(prompt)
         except Exception as e:
             print(f"❌ Error generating test code with {self.llm_provider}: {e}")
+            print("💡 Falling back to mock test generation")
             return self._generate_mock_test_code(prompt)
 
     def _generate_mock_test_code(self, prompt: str) -> str:
         """Generate a basic test template when LLM is not available."""
-        return '''import unittest
+        # Try to extract function names from the prompt to make better mock tests
+        function_names = []
+        if "Function/Method:" in prompt:
+            lines = prompt.split('\n')
+            for line in lines:
+                if line.startswith("Function/Method:"):
+                    func_name = line.split(":")[1].strip()
+                    function_names.append(func_name)
+        
+        if not function_names:
+            # Fallback generic test
+            return '''import unittest
 
 class TestGeneratedCode(unittest.TestCase):
     
     def test_placeholder(self):
         """Placeholder test - replace with actual tests."""
         self.assertTrue(True, "Placeholder test")
-    
-    def setUp(self):
-        """Set up test fixtures before each test method."""
-        pass
-    
-    def tearDown(self):
-        """Clean up after each test method."""
-        pass
 
 if __name__ == '__main__':
     unittest.main()
 '''
+        
+        # Generate specific tests for detected functions
+        test_code = "import unittest\n\n"
+        
+        # Extract imports from prompt
+        if "from " in prompt and " import " in prompt:
+            lines = prompt.split('\n')
+            for line in lines:
+                if line.strip().startswith("from ") and " import " in line:
+                    test_code += line.strip() + "\n"
+            test_code += "\n"
+        
+        test_code += "class TestGeneratedCode(unittest.TestCase):\n\n"
+        
+        for func_name in function_names[:3]:  # Limit to first 3 functions
+            test_code += f'''    def test_{func_name}(self):
+        """Test for {func_name} function."""
+        # TODO: Add actual test implementation
+        self.assertTrue(True, "Placeholder test for {func_name}")
+
+'''
+        
+        test_code += '''if __name__ == '__main__':
+    unittest.main()
+'''
+        return test_code
 
     def _generate_test_suite(self, functions: List[FunctionInfo]) -> str:
         """Generates a combined test file for multiple functions/methods."""
