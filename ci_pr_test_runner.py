@@ -25,7 +25,12 @@ LLM_PROVIDERS = {
     },
     "groq": {
         "url": "https://api.groq.com/openai/v1/chat/completions",
-        "model": "mixtral-8x7b-32768",  # This model works well with Groq
+        "models": [
+            "llama-3.3-70b-versatile",  # Primary model
+            "llama-3.1-8b-instant",     # Fallback 1
+            "gemma2-9b-it",            # Fallback 2
+            "llama3-70b-8192"          # Fallback 3
+        ],
         "headers": lambda api_key: {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -147,85 +152,116 @@ class ChangeAnalyzerAndTester:
         """Invokes the free LLM API for code generation."""
         provider_config = LLM_PROVIDERS[self.llm_provider]
         
-        # Prepare the request payload based on provider
-        if self.llm_provider == "huggingface":
-            payload = {"inputs": prompt}
+        # Get models (handle both single model and multiple models)
+        if "models" in provider_config:
+            models_to_try = provider_config["models"]
         else:
-            # OpenAI-compatible format for openrouter, groq, together
-            payload = {
-                "model": provider_config["model"],
-                "messages": [
-                    {
-                        "role": "system", 
-                        "content": "You are an expert Python unit testing engineer. Generate comprehensive, well-structured unit tests using Python's unittest framework."
-                    },
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
-                "max_tokens": 4000,
-                "temperature": 0.1,
-                "stream": False
-            }
+            models_to_try = [provider_config["model"]]
         
         headers = provider_config["headers"](self.api_key)
         
-        print(f"🤖 Calling {self.llm_provider} API to generate tests...")
-        
-        try:
-            response = requests.post(
-                provider_config["url"],
-                headers=headers,
-                json=payload,
-                timeout=60  # Increased timeout for complex test generation
-            )
+        # Try each model until one works
+        last_error = None
+        for model_name in models_to_try:
+            print(f"🤖 Calling {self.llm_provider} API with model {model_name}...")
             
-            if response.status_code != 200:
-                print(f"❌ API returned status {response.status_code}")
-                print(f"Response: {response.text}")
-                response.raise_for_status()
-            
-            response_data = response.json()
-            
-            # Extract generated text based on provider response format
+            # Prepare the request payload based on provider
             if self.llm_provider == "huggingface":
-                generated_code = response_data[0].get("generated_text", "").strip()
+                payload = {"inputs": prompt}
             else:
-                # OpenAI-compatible format
-                generated_code = response_data["choices"][0]["message"]["content"].strip()
+                # OpenAI-compatible format for openrouter, groq, together
+                payload = {
+                    "model": model_name,
+                    "messages": [
+                        {
+                            "role": "system", 
+                            "content": "You are an expert Python unit testing engineer. Generate comprehensive, well-structured unit tests using Python's unittest framework."
+                        },
+                        {
+                            "role": "user", 
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": 4000,
+                    "temperature": 0.1,
+                    "stream": False
+                }
             
-            # Clean up code blocks
-            if "```python" in generated_code:
-                code_start = generated_code.find("```python") + len("```python")
-                code_end = generated_code.rfind("```")
-                if code_end > code_start:
-                    generated_code = generated_code[code_start:code_end].strip()
-            elif "```" in generated_code:
-                # Handle cases where just ``` is used without python
-                code_start = generated_code.find("```") + 3
-                code_end = generated_code.rfind("```")
-                if code_end > code_start:
-                    generated_code = generated_code[code_start:code_end].strip()
-            
-            if not generated_code or len(generated_code.strip()) < 50:
-                raise ValueError("Generated code is too short or empty")
-            
-            print(f"✅ Successfully generated {len(generated_code)} characters of test code")
-            return generated_code
-            
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Network error calling {self.llm_provider} API: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                try:
-                    error_detail = e.response.json()
-                    print(f"API Error Details: {error_detail}")
-                except:
-                    print(f"Response text: {e.response.text}")
-            raise Exception(f"Failed to generate tests using {self.llm_provider} API") from e
-        except Exception as e:
-            print(f"❌ Error generating test code with {self.llm_provider}: {e}")
-            raise Exception(f"Failed to generate tests using {self.llm_provider}") from e
+            try:
+                response = requests.post(
+                    provider_config["url"],
+                    headers=headers,
+                    json=payload,
+                    timeout=60
+                )
+                
+                if response.status_code != 200:
+                    print(f"❌ Model {model_name} returned status {response.status_code}")
+                    if response.status_code == 400:
+                        error_data = response.json()
+                        if "model_decommissioned" in str(error_data) or "not supported" in str(error_data):
+                            print(f"⚠️ Model {model_name} is decommissioned, trying next model...")
+                            continue
+                    print(f"Response: {response.text}")
+                    response.raise_for_status()
+                
+                response_data = response.json()
+                
+                # Extract generated text based on provider response format
+                if self.llm_provider == "huggingface":
+                    generated_code = response_data[0].get("generated_text", "").strip()
+                else:
+                    # OpenAI-compatible format
+                    generated_code = response_data["choices"][0]["message"]["content"].strip()
+                
+                # Clean up code blocks
+                if "```python" in generated_code:
+                    code_start = generated_code.find("```python") + len("```python")
+                    code_end = generated_code.rfind("```")
+                    if code_end > code_start:
+                        generated_code = generated_code[code_start:code_end].strip()
+                elif "```" in generated_code:
+                    # Handle cases where just ``` is used without python
+                    code_start = generated_code.find("```") + 3
+                    code_end = generated_code.rfind("```")
+                    if code_end > code_start:
+                        generated_code = generated_code[code_start:code_end].strip()
+                
+                if not generated_code or len(generated_code.strip()) < 50:
+                    raise ValueError("Generated code is too short or empty")
+                
+                print(f"✅ Successfully generated {len(generated_code)} characters of test code using {model_name}")
+                return generated_code
+                
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Network error with model {model_name}: {e}")
+                last_error = e
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        error_detail = e.response.json()
+                        print(f"API Error Details: {error_detail}")
+                    except:
+                        print(f"Response text: {e.response.text}")
+                
+                # If this is the last model, raise the error
+                if model_name == models_to_try[-1]:
+                    break
+                else:
+                    print(f"⚠️ Trying next model...")
+                    continue
+                    
+            except Exception as e:
+                print(f"❌ Error with model {model_name}: {e}")
+                last_error = e
+                # If this is the last model, raise the error
+                if model_name == models_to_try[-1]:
+                    break
+                else:
+                    print(f"⚠️ Trying next model...")
+                    continue
+        
+        # If we get here, all models failed
+        raise Exception(f"Failed to generate tests using {self.llm_provider} API. Tried models: {', '.join(models_to_try)}") from last_error
 
     def _generate_mock_test_code(self, prompt: str) -> str:
         """Generate a basic test template when LLM is not available."""
