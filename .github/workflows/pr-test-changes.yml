@@ -1,0 +1,48 @@
+name: PR Code Change Tester
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test-changed-code:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+      
+      - name: ⚙️ Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 coverage autopep8 ast
+          pip install -r requirements.txt
+
+      - name: 📝 Find changed files
+        id: changed-files-list
+        run: |
+          git_diff_output=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          echo "CHANGED_FILES=$(echo $git_diff_output | tr '\n' ' ')" >> $GITHUB_ENV
+          echo "Detected changed files:"
+          echo "$git_diff_output"
+      
+      - name: 🚀 Run AI-powered test runner
+        env:
+          CHANGED_FILES_ENV: ${{ env.CHANGED_FILES }}
+        run: python ci_pr_test_runner.py
