@@ -25,7 +25,7 @@ LLM_PROVIDERS = {
     },
     "groq": {
         "url": "https://api.groq.com/openai/v1/chat/completions",
-        "model": "llama-3.1-8b-instant",
+        "model": "mixtral-8x7b-32768",  # This model works well with Groq
         "headers": lambda api_key: {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -94,10 +94,7 @@ class ChangeAnalyzerAndTester:
             
         api_key = os.environ.get(key_name)
         if not api_key:
-            # For demonstration, provide a fallback or skip
-            print(f"⚠️ No API key found for {self.llm_provider}. Set {key_name} environment variable.")
-            print("💡 Using mock responses for demonstration.")
-            return "demo-key"
+            raise ValueError(f"❌ API key required! Set {key_name} environment variable for {self.llm_provider} provider.")
         
         return api_key
 
@@ -148,9 +145,6 @@ class ChangeAnalyzerAndTester:
 
     def _invoke_llm_for_generation(self, prompt: str) -> str:
         """Invokes the free LLM API for code generation."""
-        if self.api_key == "demo-key":
-            return self._generate_mock_test_code(prompt)
-        
         provider_config = LLM_PROVIDERS[self.llm_provider]
         
         # Prepare the request payload based on provider
@@ -161,22 +155,36 @@ class ChangeAnalyzerAndTester:
             payload = {
                 "model": provider_config["model"],
                 "messages": [
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system", 
+                        "content": "You are an expert Python unit testing engineer. Generate comprehensive, well-structured unit tests using Python's unittest framework."
+                    },
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
                 ],
                 "max_tokens": 4000,
-                "temperature": 0.1
+                "temperature": 0.1,
+                "stream": False
             }
         
         headers = provider_config["headers"](self.api_key)
+        
+        print(f"🤖 Calling {self.llm_provider} API to generate tests...")
         
         try:
             response = requests.post(
                 provider_config["url"],
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=60  # Increased timeout for complex test generation
             )
-            response.raise_for_status()
+            
+            if response.status_code != 200:
+                print(f"❌ API returned status {response.status_code}")
+                print(f"Response: {response.text}")
+                response.raise_for_status()
             
             response_data = response.json()
             
@@ -193,23 +201,31 @@ class ChangeAnalyzerAndTester:
                 code_end = generated_code.rfind("```")
                 if code_end > code_start:
                     generated_code = generated_code[code_start:code_end].strip()
+            elif "```" in generated_code:
+                # Handle cases where just ``` is used without python
+                code_start = generated_code.find("```") + 3
+                code_end = generated_code.rfind("```")
+                if code_end > code_start:
+                    generated_code = generated_code[code_start:code_end].strip()
             
+            if not generated_code or len(generated_code.strip()) < 50:
+                raise ValueError("Generated code is too short or empty")
+            
+            print(f"✅ Successfully generated {len(generated_code)} characters of test code")
             return generated_code
             
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error calling {self.llm_provider} API: {e}")
+            print(f"❌ Network error calling {self.llm_provider} API: {e}")
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_detail = e.response.json()
                     print(f"API Error Details: {error_detail}")
                 except:
                     print(f"Response text: {e.response.text}")
-            print("💡 Falling back to mock test generation")
-            return self._generate_mock_test_code(prompt)
+            raise Exception(f"Failed to generate tests using {self.llm_provider} API") from e
         except Exception as e:
             print(f"❌ Error generating test code with {self.llm_provider}: {e}")
-            print("💡 Falling back to mock test generation")
-            return self._generate_mock_test_code(prompt)
+            raise Exception(f"Failed to generate tests using {self.llm_provider}") from e
 
     def _generate_mock_test_code(self, prompt: str) -> str:
         """Generate a basic test template when LLM is not available."""
@@ -257,15 +273,10 @@ if __name__ == '__main__':
 
 '''
         
-        test_code += '''if __name__ == '__main__':
-    unittest.main()
-'''
-        return test_code
-
     def _generate_test_suite(self, functions: List[FunctionInfo]) -> str:
         """Generates a combined test file for multiple functions/methods."""
         if not functions:
-            return ""
+            raise ValueError("No functions provided for test generation")
 
         functions_info = []
         imports_by_file = {}
@@ -295,7 +306,7 @@ if __name__ == '__main__':
         all_imports = "\n".join(imports_set)
         
         prompt = f"""
-You are an expert Python unit testing engineer. Generate a comprehensive test file using Python's `unittest` framework.
+You are an expert Python unit testing engineer. Generate comprehensive, production-quality unit tests using Python's `unittest` framework.
 
 FUNCTIONS/METHODS TO TEST:
 {chr(10).join(functions_info)}
@@ -305,16 +316,46 @@ REQUIRED IMPORTS (use these exact imports):
 
 CRITICAL INSTRUCTIONS:
 1. Use ONLY the imports provided above - do not make up class names or imports
-2. Create a `unittest.TestCase` class for the tests.
-3. For each function or method, create a test method (e.g., `test_function_name`).
-4. For class methods, instantiate the class in setUp() or within test methods
-5. Include test cases for normal behavior, edge cases, and error conditions.
-6. Use `self.assertEqual`, `self.assertTrue`, `self.assertRaises`, etc.
-7. Provide meaningful docstrings.
-8. Use a `if __name__ == '__main__':` block to run the tests.
-9. IMPORTANT: Only test the functions/methods that are explicitly provided in the function list above
+2. Create comprehensive `unittest.TestCase` classes for the tests
+3. For each function/method, create multiple test methods covering:
+   - Normal/happy path scenarios with various valid inputs
+   - Edge cases (empty inputs, boundary values, special characters)
+   - Error conditions with appropriate `assertRaises` tests
+   - Different data types if applicable
+4. For class methods, instantiate the class properly in setUp() or within test methods
+5. Use descriptive test method names like `test_function_name_with_valid_input`
+6. Include meaningful docstrings for each test method
+7. Use appropriate assertions: `assertEqual`, `assertTrue`, `assertFalse`, `assertRaises`, `assertIn`, etc.
+8. Test both expected outputs and side effects
+9. For functions with complex logic, test multiple execution paths
+10. Add setUp() and tearDown() methods if needed for test fixtures
 
-Generate ONLY the complete, runnable Python code for the test file. No explanations.
+EXAMPLE TEST STRUCTURE:
+```python
+import unittest
+from module import function_name, ClassName
+
+class TestFunctionName(unittest.TestCase):
+    
+    def test_function_name_with_valid_input(self):
+        \"\"\"Test function with normal valid input.\"\"\"
+        result = function_name("valid_input")
+        self.assertEqual(result, expected_output)
+    
+    def test_function_name_with_empty_input(self):
+        \"\"\"Test function behavior with empty input.\"\"\"
+        # Test implementation
+    
+    def test_function_name_raises_error_for_invalid_input(self):
+        \"\"\"Test that function raises appropriate error for invalid input.\"\"\"
+        with self.assertRaises(ExpectedError):
+            function_name(invalid_input)
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+Generate ONLY the complete, runnable Python code for the test file. No explanations or markdown formatting.
 """
         return self._invoke_llm_for_generation(prompt)
 
