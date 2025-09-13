@@ -52,3 +52,16 @@ class Calculator:
         if b == 0:
             raise ValueError("Cannot divide by zero.")
         return a / b
+
+    def power(self, base, exp):
+        """
+        Calculates the power of a base to an exponent.
+
+        Args:
+            base (int or float): The base number.
+            exp (int): The exponent.
+
+        Returns:
+            int or float: The result of base ** exp.
+        """
+        return base ** exp
