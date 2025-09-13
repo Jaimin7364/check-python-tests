@@ -190,8 +190,8 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         except subprocess.CalledProcessError as e:
             print(f"❌ Failed to format {file_path.name}: {e.stderr}")
 
-    def _execute_tests(self, test_file_path: Path) -> Dict[str, any]:
-        """Executes the generated test file with code coverage."""
+    def _execute_tests(self, test_file_path: Path, changed_files: List[str]) -> Dict[str, any]:
+        """Executes the generated test file with code coverage for only the changed files."""
         print(f"🧪 Executing tests from {test_file_path}")
         
         # Get the current Python executable instead of hardcoded 'python'
@@ -205,13 +205,29 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         else:
             env['PYTHONPATH'] = str(self.project_root)
         
+        # Filter only Python files from changed files
+        python_changed_files = []
+        for file_path_str in changed_files:
+            file_path = self.project_root / file_path_str
+            if file_path.exists() and file_path.suffix == '.py':
+                python_changed_files.append(file_path_str)
+        
         try:
-            # Run tests with coverage
+            # Run tests with coverage only for changed Python files
             coverage_file = self.project_root / ".coverage"
+            
+            # Build coverage command with specific source files
+            coverage_cmd = [python_executable, "-m", "coverage", "run"]
+            
+            # Add each changed Python file as a source
+            for py_file in python_changed_files:
+                coverage_cmd.extend(["--source", py_file])
+            
+            coverage_cmd.append(str(test_file_path))
             
             # First, run the tests with coverage
             run_result = subprocess.run(
-                [python_executable, "-m", "coverage", "run", "--source=.", str(test_file_path)],
+                coverage_cmd,
                 capture_output=True, text=True, check=True,
                 cwd=str(self.project_root),
                 env=env
@@ -234,7 +250,7 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             )
             
             print("✅ Tests passed.")
-            print("\n📊 Code Coverage Report:")
+            print(f"\n📊 Code Coverage Report (Changed Files Only):")
             print(coverage_result.stdout)
             
             if coverage_html_result.returncode == 0:
@@ -311,14 +327,14 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             return
 
         # Execute tests and get coverage results
-        test_results = self._execute_tests(test_file_path)
+        test_results = self._execute_tests(test_file_path, changed_files)
         
         # Display coverage summary
         if test_results["status"] == "success" and "coverage_report" in test_results:
             coverage_metrics = self._parse_coverage_metrics(test_results["coverage_report"])
             if "total_coverage" in coverage_metrics:
                 coverage_percent = coverage_metrics["total_coverage"]
-                print(f"\n🎯 Total Code Coverage: {coverage_percent}%")
+                print(f"\n🎯 Changed Files Code Coverage: {coverage_percent}%")
                 
                 # Provide coverage feedback
                 try:
