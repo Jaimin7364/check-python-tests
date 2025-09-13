@@ -1,0 +1,89 @@
+{
+  "title": "🚀 Python Project Test Automation Report",
+  "generated": "2025-09-13 14:36:07",
+  "model_name": "llama-3.3-70b-versatile",
+  "execution_time_seconds": 2.239932,
+  "status": "FAILED",
+  "changed_files": [
+    "main.py",
+    "utils.py"
+  ],
+  "analyzed_functions": [
+    {
+      "name": "add_numbers",
+      "file_path": "main.py",
+      "line_start": 4,
+      "line_end": 15,
+      "is_method": false,
+      "class_name": null,
+      "code_snippet": "def add_numbers(a, b):\n    \"\"\"\n    Adds two numbers together.\n\n    Args:\n        a (int or float): The first number.\n        b (int or float): The second number.\n\n    Returns:\n        int or float: Th..."
+    },
+    {
+      "name": "is_prime",
+      "file_path": "main.py",
+      "line_start": 17,
+      "line_end": 32,
+      "is_method": false,
+      "class_name": null,
+      "code_snippet": "def is_prime(n):\n    \"\"\"\n    Checks if a number is a prime number.\n\n    Args:\n        n (int): The number to check.\n\n    Returns:\n        bool: True if the number is prime, False otherwise.\n    \"\"\"\n  ..."
+    },
+    {
+      "name": "capitalize_string",
+      "file_path": "main.py",
+      "line_start": 34,
+      "line_end": 44,
+      "is_method": false,
+      "class_name": null,
+      "code_snippet": "def capitalize_string(s):\n    \"\"\"\n    Capitalizes the first letter of each word in a string.\n    \n    Args:\n        s (str): The input string.\n\n    Returns:\n        str: The string with each word capi..."
+    },
+    {
+      "name": "multiply",
+      "file_path": "main.py",
+      "line_start": 48,
+      "line_end": 49,
+      "is_method": true,
+      "class_name": "Calculator",
+      "code_snippet": "    def multiply(self, a, b):\n        return a * b"
+    },
+    {
+      "name": "power",
+      "file_path": "main.py",
+      "line_start": 50,
+      "line_end": 61,
+      "is_method": true,
+      "class_name": "Calculator",
+      "code_snippet": "    def power(self, base, exp):\n        \"\"\"\n        Calculates the power of a base to an exponent.\n\n        Args:\n            base (int or float): The base number.\n            exp (int): The exponent...."
+    },
+    {
+      "name": "subtract_three_numbers",
+      "file_path": "utils.py",
+      "line_start": 1,
+      "line_end": 13,
+      "is_method": false,
+      "class_name": null,
+      "code_snippet": "def subtract_three_numbers(a, b, c):\n    \"\"\"\n    Calculates the result of subtracting the second and third numbers from the first.\n\n    Args:\n        a (int or float): The first number.\n        b (int..."
+    }
+  ],
+  "test_results": {
+    "status": "failure",
+    "output": "......F....\n======================================================================\nFAIL: test_multiply_error (__main__.TestFunctions)\nTest the multiply method of the Calculator class with error conditions.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py\", line 67, in test_multiply_error\n    with self.assertRaises(TypeError):\nAssertionError: TypeError not raised\n\n----------------------------------------------------------------------\nRan 11 tests in 0.001s\n\nFAILED (failures=1)\n"
+  },
+  "coverage_metrics": {},
+  "execution_logs": [
+    "[2025-09-13 14:36:05] [INFO] 🚀 Starting Python Project Test Automation",
+    "[2025-09-13 14:36:05] [INFO] 📁 Detected 2 changed files: main.py, utils.py",
+    "[2025-09-13 14:36:05] [INFO] 🔍 Analyzing changed file: main.py",
+    "[2025-09-13 14:36:05] [INFO] 🔍 Analyzing changed file: utils.py",
+    "[2025-09-13 14:36:05] [INFO] 🤖 Found 6 functions/methods to test using llama-3.3-70b-versatile",
+    "[2025-09-13 14:36:05] [INFO] 🧠 Generating test cases using llama-3.3-70b-versatile...",
+    "[2025-09-13 14:36:07] [INFO] ✔️ Formatted: pr_generated_tests.py",
+    "[2025-09-13 14:36:07] [SUCCESS] ✅ Generated and saved tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py",
+    "[2025-09-13 14:36:07] [INFO] 🏃 Executing generated tests with coverage analysis...",
+    "[2025-09-13 14:36:07] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py",
+    "[2025-09-13 14:36:07] [ERROR] ❌ Tests failed.",
+    "[2025-09-13 14:36:07] [ERROR] --- Test Output ---",
+    "[2025-09-13 14:36:07] [ERROR] ",
+    "[2025-09-13 14:36:07] [ERROR] ......F....\n======================================================================\nFAIL: test_multiply_error (__main__.TestFunctions)\nTest the multiply method of the Calculator class with error conditions.\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py\", line 67, in test_multiply_error\n    with self.assertRaises(TypeError):\nAssertionError: TypeError not raised\n\n----------------------------------------------------------------------\nRan 11 tests in 0.001s\n\nFAILED (failures=1)\n",
+    "[2025-09-13 14:36:07] [ERROR] -------------------"
+  ]
+}
