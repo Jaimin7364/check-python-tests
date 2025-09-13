@@ -8,14 +8,16 @@ jobs:
   test-changed-code:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # Changed from 'read' to 'write' to allow pushing reports
+      pull-requests: write
     
     steps:
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: ⚙️ Set up Python
         uses: actions/setup-python@v5
         with:
@@ -42,3 +44,104 @@ jobs:
           # Pass the Groq API Key from GitHub Secrets
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python ci_pr_test_runner.py
+
+      - name: 📊 Upload Test Reports as Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()  # Upload even if tests fail
+        with:
+          name: test-automation-reports
+          path: |
+            reports/
+            htmlcov/
+            tests_pr/
+          retention-days: 30
+
+      - name: 📝 Commit and Push Reports
+        if: always()  # Run even if tests fail
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Create reports directory if it doesn't exist
+          mkdir -p reports
+          
+          # Add reports to git
+          git add reports/ || true
+          git add htmlcov/ || true
+          git add tests_pr/ || true
+          
+          # Check if there are any changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📊 Add automated test reports [skip ci]"
+            git push
+          fi
+
+      - name: 📋 Comment PR with Report Summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Try to read the latest JSON report
+            try {
+              const reportsDir = 'reports';
+              if (fs.existsSync(reportsDir)) {
+                const files = fs.readdirSync(reportsDir);
+                const jsonFiles = files.filter(f => f.endsWith('.json'));
+                
+                if (jsonFiles.length > 0) {
+                  const latestReport = jsonFiles.sort().pop();
+                  const reportPath = path.join(reportsDir, latestReport);
+                  const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+                  
+                  const coveragePercent = reportData.coverage_metrics?.total_coverage || 'N/A';
+                  const status = reportData.status;
+                  const executionTime = reportData.execution_time_seconds;
+                  const modelName = reportData.model_name;
+                  
+                  const body = `## 🚀 Automated Test Report
+            
+            **Status:** ${status === 'SUCCESS' ? '✅' : '❌'} ${status}
+            **Model Used:** ${modelName}
+            **Execution Time:** ${executionTime}s
+            **Coverage:** ${coveragePercent}%
+            
+            ### 📁 Changed Files
+            ${reportData.changed_files.map(f => `- \`${f}\``).join('\n')}
+            
+            ### 🔍 Functions Analyzed
+            ${reportData.analyzed_functions.map(f => `- \`${f.name}\` in \`${f.file_path}\``).join('\n')}
+            
+            ### 📊 Reports Generated
+            - 📄 [JSON Report](./reports/${latestReport})
+            - 📄 [XML Report](./reports/${latestReport.replace('.json', '.xml')})
+            - 📄 [Text Report](./reports/${latestReport.replace('.json', '.txt')})
+            - 📄 [HTML Coverage Report](./htmlcov/index.html)
+            
+            > Reports are automatically generated using AI-powered test automation with ${modelName}`;
+                  
+                  github.rest.issues.createComment({
+                    issue_number: context.issue.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    body: body
+                  });
+                }
+              }
+            } catch (error) {
+              console.log('Could not read report file:', error.message);
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🚀 Automated Test Report
+                
+                Test automation completed, but report summary could not be generated.
+                Check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
+              });
+            }
