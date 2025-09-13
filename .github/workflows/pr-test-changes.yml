@@ -31,7 +31,7 @@ jobs:
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install boto3 coverage autopep8 ast
+          pip install boto3 coverage autopep8
           pip install -r requirements.txt
 
       - name: 📝 Find changed files
