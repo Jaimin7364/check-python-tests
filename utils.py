@@ -13,3 +13,4 @@ def mul_two_numbers(a, b):
         int or float: The mul of the two numbers.
     """
     return a * b
+
