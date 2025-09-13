@@ -2,7 +2,6 @@ import os
 import subprocess
 import json
 import sys
-import requests
 import re
 import ast
 import hashlib
@@ -10,49 +9,19 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 from dataclasses import dataclass, field
 
-# --- Configuration ---
-DEFAULT_TEST_DIR = "tests_pr"
+from groq import Groq
+from groq.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
-# Free LLM Provider Configuration
-LLM_PROVIDERS = {
-    "openrouter": {
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
-        "headers": lambda api_key: {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-    },
-    "groq": {
-        "url": "https://api.groq.com/openai/v1/chat/completions",
-        "models": [
-            "llama-3.3-70b-versatile",  # Primary model
-            "llama-3.1-8b-instant",     # Fallback 1
-            "gemma2-9b-it",            # Fallback 2
-            "llama3-70b-8192"          # Fallback 3
-        ],
-        "headers": lambda api_key: {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-    },
-    "together": {
-        "url": "https://api.together.xyz/v1/chat/completions",
-        "model": "meta-llama/Llama-3-8b-chat-hf",
-        "headers": lambda api_key: {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-    },
-    "huggingface": {
-        "url": "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium",
-        "model": "microsoft/DialoGPT-medium",
-        "headers": lambda api_key: {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-    }
-}
+# --- Configuration ---
+# Use an environment variable for the Groq API Key
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("❌ Error: GROQ_API_KEY environment variable not set.")
+    sys.exit(1)
+
+# Use the Llama 3.1 70B model
+MODEL_ID = "llama-3.3-70b-versatile"
+DEFAULT_TEST_DIR = "tests_pr"
 
 @dataclass
 class FunctionInfo:
@@ -67,7 +36,7 @@ class FunctionInfo:
 
 class ChangeAnalyzerAndTester:
     """
-    Analyzes code changes in a PR and generates/runs tests using free LLM APIs.
+    Analyzes code changes in a PR and generates/runs tests using a Groq LLM.
     """
     def __init__(self):
         self.project_root = Path(os.getcwd())
@@ -76,32 +45,8 @@ class ChangeAnalyzerAndTester:
         
         self.test_dir = self.project_root / DEFAULT_TEST_DIR
         self.test_dir.mkdir(exist_ok=True)
-        
-        # Configure LLM provider
-        self.llm_provider = os.environ.get("LLM_PROVIDER", "openrouter").lower()
-        self.api_key = self._get_api_key()
-        
-        if self.llm_provider not in LLM_PROVIDERS:
-            raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
-
-    def _get_api_key(self) -> str:
-        """Get API key based on the selected provider."""
-        provider_keys = {
-            "openrouter": "OPENROUTER_API_KEY",
-            "groq": "GROQ_API_KEY", 
-            "together": "TOGETHER_API_KEY",
-            "huggingface": "HUGGINGFACE_API_KEY"
-        }
-        
-        key_name = provider_keys.get(self.llm_provider)
-        if not key_name:
-            raise ValueError(f"Unknown provider: {self.llm_provider}")
-            
-        api_key = os.environ.get(key_name)
-        if not api_key:
-            raise ValueError(f"❌ API key required! Set {key_name} environment variable for {self.llm_provider} provider.")
-        
-        return api_key
+        # Initialize the Groq client
+        self.client = Groq(api_key=GROQ_API_KEY)
 
     def _get_changed_files(self) -> List[str]:
         """Gets changed files from the GITHUB_ENV variable."""
@@ -149,170 +94,36 @@ class ChangeAnalyzerAndTester:
         return functions
 
     def _invoke_llm_for_generation(self, prompt: str) -> str:
-        """Invokes the free LLM API for code generation."""
-        provider_config = LLM_PROVIDERS[self.llm_provider]
-        
-        # Get models (handle both single model and multiple models)
-        if "models" in provider_config:
-            models_to_try = provider_config["models"]
-        else:
-            models_to_try = [provider_config["model"]]
-        
-        headers = provider_config["headers"](self.api_key)
-        
-        # Try each model until one works
-        last_error = None
-        for model_name in models_to_try:
-            print(f"🤖 Calling {self.llm_provider} API with model {model_name}...")
+        """Invokes the Groq LLM for code generation."""
+        try:
+            # Groq API call
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    ChatCompletionMessageParam(role="user", content=prompt),
+                ],
+                model=MODEL_ID,
+                temperature=0.1,
+            )
             
-            # Prepare the request payload based on provider
-            if self.llm_provider == "huggingface":
-                payload = {"inputs": prompt}
-            else:
-                # OpenAI-compatible format for openrouter, groq, together
-                payload = {
-                    "model": model_name,
-                    "messages": [
-                        {
-                            "role": "system", 
-                            "content": "You are an expert Python unit testing engineer. Generate comprehensive, well-structured unit tests using Python's unittest framework."
-                        },
-                        {
-                            "role": "user", 
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 4000,
-                    "temperature": 0.1,
-                    "stream": False
-                }
-            
-            try:
-                response = requests.post(
-                    provider_config["url"],
-                    headers=headers,
-                    json=payload,
-                    timeout=60
-                )
-                
-                if response.status_code != 200:
-                    print(f"❌ Model {model_name} returned status {response.status_code}")
-                    if response.status_code == 400:
-                        error_data = response.json()
-                        if "model_decommissioned" in str(error_data) or "not supported" in str(error_data):
-                            print(f"⚠️ Model {model_name} is decommissioned, trying next model...")
-                            continue
-                    print(f"Response: {response.text}")
-                    response.raise_for_status()
-                
-                response_data = response.json()
-                
-                # Extract generated text based on provider response format
-                if self.llm_provider == "huggingface":
-                    generated_code = response_data[0].get("generated_text", "").strip()
+            generated_code = chat_completion.choices[0].message.content.strip()
+
+            # Clean up markdown code fences
+            if "```python" in generated_code:
+                code_start = generated_code.find("```python") + len("```python")
+                code_end = generated_code.rfind("```")
+                if code_end > code_start:
+                    generated_code = generated_code[code_start:code_end].strip()
                 else:
-                    # OpenAI-compatible format
-                    generated_code = response_data["choices"][0]["message"]["content"].strip()
-                
-                # Clean up code blocks
-                if "```python" in generated_code:
-                    code_start = generated_code.find("```python") + len("```python")
-                    code_end = generated_code.rfind("```")
-                    if code_end > code_start:
-                        generated_code = generated_code[code_start:code_end].strip()
-                elif "```" in generated_code:
-                    # Handle cases where just ``` is used without python
-                    code_start = generated_code.find("```") + 3
-                    code_end = generated_code.rfind("```")
-                    if code_end > code_start:
-                        generated_code = generated_code[code_start:code_end].strip()
-                
-                if not generated_code or len(generated_code.strip()) < 50:
-                    raise ValueError("Generated code is too short or empty")
-                
-                print(f"✅ Successfully generated {len(generated_code)} characters of test code using {model_name}")
-                return generated_code
-                
-            except requests.exceptions.RequestException as e:
-                print(f"❌ Network error with model {model_name}: {e}")
-                last_error = e
-                if hasattr(e, 'response') and e.response is not None:
-                    try:
-                        error_detail = e.response.json()
-                        print(f"API Error Details: {error_detail}")
-                    except:
-                        print(f"Response text: {e.response.text}")
-                
-                # If this is the last model, raise the error
-                if model_name == models_to_try[-1]:
-                    break
-                else:
-                    print(f"⚠️ Trying next model...")
-                    continue
-                    
-            except Exception as e:
-                print(f"❌ Error with model {model_name}: {e}")
-                last_error = e
-                # If this is the last model, raise the error
-                if model_name == models_to_try[-1]:
-                    break
-                else:
-                    print(f"⚠️ Trying next model...")
-                    continue
-        
-        # If we get here, all models failed
-        raise Exception(f"Failed to generate tests using {self.llm_provider} API. Tried models: {', '.join(models_to_try)}") from last_error
+                    generated_code = ""
+            return generated_code
+        except Exception as e:
+            print(f"❌ Error generating test code with Groq LLM: {e}")
+            return ""
 
-    def _generate_mock_test_code(self, prompt: str) -> str:
-        """Generate a basic test template when LLM is not available."""
-        # Try to extract function names from the prompt to make better mock tests
-        function_names = []
-        if "Function/Method:" in prompt:
-            lines = prompt.split('\n')
-            for line in lines:
-                if line.startswith("Function/Method:"):
-                    func_name = line.split(":")[1].strip()
-                    function_names.append(func_name)
-        
-        if not function_names:
-            # Fallback generic test
-            return '''import unittest
-
-class TestGeneratedCode(unittest.TestCase):
-    
-    def test_placeholder(self):
-        """Placeholder test - replace with actual tests."""
-        self.assertTrue(True, "Placeholder test")
-
-if __name__ == '__main__':
-    unittest.main()
-'''
-        
-        # Generate specific tests for detected functions
-        test_code = "import unittest\n\n"
-        
-        # Extract imports from prompt
-        if "from " in prompt and " import " in prompt:
-            lines = prompt.split('\n')
-            for line in lines:
-                if line.strip().startswith("from ") and " import " in line:
-                    test_code += line.strip() + "\n"
-            test_code += "\n"
-        
-        test_code += "class TestGeneratedCode(unittest.TestCase):\n\n"
-        
-        for func_name in function_names[:3]:  # Limit to first 3 functions
-            test_code += f'''    def test_{func_name}(self):
-        """Test for {func_name} function."""
-        # TODO: Add actual test implementation
-        self.assertTrue(True, "Placeholder test for {func_name}")
-
-'''
-        
     def _generate_test_suite(self, functions: List[FunctionInfo]) -> str:
         """Generates a combined test file for multiple functions/methods."""
         if not functions:
-            raise ValueError("No functions provided for test generation")
+            return ""
 
         functions_info = []
         imports_by_file = {}
@@ -342,7 +153,7 @@ if __name__ == '__main__':
         all_imports = "\n".join(imports_set)
         
         prompt = f"""
-You are an expert Python unit testing engineer. Generate comprehensive, production-quality unit tests using Python's `unittest` framework.
+You are an expert Python unit testing engineer. Generate a comprehensive test file using Python's `unittest` framework.
 
 FUNCTIONS/METHODS TO TEST:
 {chr(10).join(functions_info)}
@@ -352,46 +163,16 @@ REQUIRED IMPORTS (use these exact imports):
 
 CRITICAL INSTRUCTIONS:
 1. Use ONLY the imports provided above - do not make up class names or imports
-2. Create comprehensive `unittest.TestCase` classes for the tests
-3. For each function/method, create multiple test methods covering:
-   - Normal/happy path scenarios with various valid inputs
-   - Edge cases (empty inputs, boundary values, special characters)
-   - Error conditions with appropriate `assertRaises` tests
-   - Different data types if applicable
-4. For class methods, instantiate the class properly in setUp() or within test methods
-5. Use descriptive test method names like `test_function_name_with_valid_input`
-6. Include meaningful docstrings for each test method
-7. Use appropriate assertions: `assertEqual`, `assertTrue`, `assertFalse`, `assertRaises`, `assertIn`, etc.
-8. Test both expected outputs and side effects
-9. For functions with complex logic, test multiple execution paths
-10. Add setUp() and tearDown() methods if needed for test fixtures
+2. Create a `unittest.TestCase` class for the tests.
+3. For each function or method, create a test method (e.g., `test_function_name`).
+4. For class methods, instantiate the class in setUp() or within test methods
+5. Include test cases for normal behavior, edge cases, and error conditions.
+6. Use `self.assertEqual`, `self.assertTrue`, `self.assertRaises`, etc.
+7. Provide meaningful docstrings.
+8. Use a `if __name__ == '__main__':` block to run the tests.
+9. IMPORTANT: Only test the functions/methods that are explicitly provided in the function list above
 
-EXAMPLE TEST STRUCTURE:
-```python
-import unittest
-from module import function_name, ClassName
-
-class TestFunctionName(unittest.TestCase):
-    
-    def test_function_name_with_valid_input(self):
-        \"\"\"Test function with normal valid input.\"\"\"
-        result = function_name("valid_input")
-        self.assertEqual(result, expected_output)
-    
-    def test_function_name_with_empty_input(self):
-        \"\"\"Test function behavior with empty input.\"\"\"
-        # Test implementation
-    
-    def test_function_name_raises_error_for_invalid_input(self):
-        \"\"\"Test that function raises appropriate error for invalid input.\"\"\"
-        with self.assertRaises(ExpectedError):
-            function_name(invalid_input)
-
-if __name__ == '__main__':
-    unittest.main()
-```
-
-Generate ONLY the complete, runnable Python code for the test file. No explanations or markdown formatting.
+Generate ONLY the complete, runnable Python code for the test file. No explanations.
 """
         return self._invoke_llm_for_generation(prompt)
 
@@ -411,27 +192,61 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             print(f"❌ Failed to format {file_path.name}: {e.stderr}")
 
     def _execute_tests(self, test_file_path: Path) -> Dict[str, any]:
-        """Executes the generated test file."""
+        """Executes the generated test file with code coverage."""
         print(f"🧪 Executing tests from {test_file_path}")
+        
+        # Get the current Python executable instead of hardcoded 'python'
+        python_executable = sys.executable
+        
+        # Set PYTHONPATH to include the project root for imports
+        env = os.environ.copy()
+        current_pythonpath = env.get('PYTHONPATH', '')
+        if current_pythonpath:
+            env['PYTHONPATH'] = f"{str(self.project_root)}:{current_pythonpath}"
+        else:
+            env['PYTHONPATH'] = str(self.project_root)
+        
         try:
-            # Get the current Python executable instead of hardcoded 'python'
-            python_executable = sys.executable
-            # Set PYTHONPATH to include the project root for imports
-            env = os.environ.copy()
-            current_pythonpath = env.get('PYTHONPATH', '')
-            if current_pythonpath:
-                env['PYTHONPATH'] = f"{str(self.project_root)}:{current_pythonpath}"
-            else:
-                env['PYTHONPATH'] = str(self.project_root)
+            # Run tests with coverage
+            coverage_file = self.project_root / ".coverage"
             
+            # First, run the tests with coverage
             run_result = subprocess.run(
-                [python_executable, str(test_file_path)],
+                [python_executable, "-m", "coverage", "run", "--source=.", str(test_file_path)],
                 capture_output=True, text=True, check=True,
                 cwd=str(self.project_root),
                 env=env
             )
+            
+            # Generate coverage report
+            coverage_result = subprocess.run(
+                [python_executable, "-m", "coverage", "report", "--format=text"],
+                capture_output=True, text=True, check=True,
+                cwd=str(self.project_root),
+                env=env
+            )
+            
+            # Generate detailed coverage report
+            coverage_html_result = subprocess.run(
+                [python_executable, "-m", "coverage", "html", "-d", "htmlcov"],
+                capture_output=True, text=True,
+                cwd=str(self.project_root),
+                env=env
+            )
+            
             print("✅ Tests passed.")
-            return {"status": "success", "output": run_result.stdout}
+            print("\n📊 Code Coverage Report:")
+            print(coverage_result.stdout)
+            
+            if coverage_html_result.returncode == 0:
+                print("📄 Detailed HTML coverage report generated in 'htmlcov/' directory")
+            
+            return {
+                "status": "success", 
+                "output": run_result.stdout,
+                "coverage_report": coverage_result.stdout
+            }
+            
         except subprocess.CalledProcessError as e:
             print("❌ Tests failed.")
             print("--- Test Output ---")
@@ -439,6 +254,25 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             print(e.stderr)
             print("-------------------")
             return {"status": "failure", "output": e.stdout + e.stderr}
+
+    def _parse_coverage_metrics(self, coverage_output: str) -> Dict[str, str]:
+        """Parse coverage output to extract key metrics."""
+        metrics = {}
+        lines = coverage_output.strip().split('\n')
+        
+        for line in lines:
+            if 'TOTAL' in line:
+                # Extract total coverage percentage
+                parts = line.split()
+                if len(parts) >= 4:
+                    try:
+                        coverage_percent = parts[-1].rstrip('%')
+                        metrics['total_coverage'] = coverage_percent
+                    except (ValueError, IndexError):
+                        pass
+                break
+        
+        return metrics
 
     def run(self):
         """Main runner for the CI script."""
@@ -477,7 +311,29 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             print(f"❌ Failed to save test file: {e}")
             return
 
-        self._execute_tests(test_file_path)
+        # Execute tests and get coverage results
+        test_results = self._execute_tests(test_file_path)
+        
+        # Display coverage summary
+        if test_results["status"] == "success" and "coverage_report" in test_results:
+            coverage_metrics = self._parse_coverage_metrics(test_results["coverage_report"])
+            if "total_coverage" in coverage_metrics:
+                coverage_percent = coverage_metrics["total_coverage"]
+                print(f"\n🎯 Total Code Coverage: {coverage_percent}%")
+                
+                # Provide coverage feedback
+                try:
+                    coverage_float = float(coverage_percent)
+                    if coverage_float >= 90:
+                        print("🟢 Excellent coverage!")
+                    elif coverage_float >= 75:
+                        print("🟡 Good coverage, consider adding more tests")
+                    elif coverage_float >= 50:
+                        print("🟠 Moderate coverage, more tests recommended")
+                    else:
+                        print("🔴 Low coverage, significant testing gaps detected")
+                except ValueError:
+                    pass
 
 if __name__ == "__main__":
     runner = ChangeAnalyzerAndTester()
