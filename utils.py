@@ -15,6 +15,10 @@ def multiply_matrices(matrix_a, matrix_b):
     Raises:
         ValueError: If the matrices cannot be multiplied due to incompatible dimensions.
     """
+    # Check for empty matrices
+    if not matrix_a or not matrix_b or not matrix_a[0] or not matrix_b[0]:
+        raise ValueError("Matrices cannot be empty.")
+
     # Get the dimensions of the matrices
     rows_a = len(matrix_a)
     cols_a = len(matrix_a[0])
