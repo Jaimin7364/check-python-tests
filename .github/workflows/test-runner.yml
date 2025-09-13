@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -27,7 +27,7 @@ jobs:
     
     - name: Get changed Python files
       id: changed-files
-      uses: tj-actions/changed-files@v39
+      uses: tj-actions/changed-files@v44
       with:
         files: |
           **/*.py
@@ -46,11 +46,40 @@ jobs:
         
         CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
+        echo "🔍 Changed files: $CHANGED_FILES"
+        echo "🤖 Using LLM provider: $LLM_PROVIDER"
         python ci_pr_test_runner.py
+    
+    - name: Comment on PR with results
+      if: steps.changed-files.outputs.any_changed == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = './tests_pr/pr_generated_tests.py';
+          
+          let comment = '## 🤖 AI Test Generation Results\n\n';
+          
+          if (fs.existsSync(path)) {
+            comment += '✅ **Tests generated successfully!**\n\n';
+            comment += '📁 Generated test file: `tests_pr/pr_generated_tests.py`\n';
+            comment += '🧪 Tests have been executed and results are available in the workflow logs.\n\n';
+            comment += '📊 Code coverage report has been generated.\n';
+          } else {
+            comment += '❌ **Test generation failed**\n\n';
+            comment += 'Please check the workflow logs for more details.\n';
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          })
     
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: |
