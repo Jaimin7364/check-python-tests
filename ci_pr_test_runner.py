@@ -121,24 +121,29 @@ class ChangeAnalyzerAndTester:
             return ""
 
         functions_info = []
-        imports_set = set()
-        class_names = set()
-        function_names = set()
+        imports_by_file = {}
         
         for func in functions:
             functions_info.append(f"Function/Method: {func.name}\nFile: {func.file_path}\nCode: {func.code}")
             
-            # Collect imports properly
+            # Get module name from file path (remove .py extension)
+            module_name = Path(func.file_path).stem
+            
+            if module_name not in imports_by_file:
+                imports_by_file[module_name] = {'functions': set(), 'classes': set()}
+            
+            # Collect imports properly by file
             if func.class_name:
-                class_names.add(func.class_name)
+                imports_by_file[module_name]['classes'].add(func.class_name)
             else:
-                function_names.add(func.name)
+                imports_by_file[module_name]['functions'].add(func.name)
         
-        # Generate imports
-        if function_names:
-            imports_set.add(f"from main import {', '.join(sorted(function_names))}")
-        if class_names:
-            imports_set.add(f"from main import {', '.join(sorted(class_names))}")
+        # Generate imports grouped by file
+        imports_set = set()
+        for module_name, items in imports_by_file.items():
+            all_items = list(items['functions']) + list(items['classes'])
+            if all_items:
+                imports_set.add(f"from {module_name} import {', '.join(sorted(all_items))}")
         
         all_imports = "\n".join(imports_set)
         
