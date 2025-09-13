@@ -47,12 +47,6 @@ class Calculator:
     """A simple calculator class."""
     def multiply(self, a, b):
         return a * b
-
-    def divide(self, a, b):
-        if b == 0:
-            raise ValueError("Cannot divide by zero.")
-        return a / b
-
     def power(self, base, exp):
         """
         Calculates the power of a base to an exponent.
