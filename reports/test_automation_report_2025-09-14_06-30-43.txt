@@ -1,0 +1,130 @@
+🚀 Python Project Test Automation Report
+Generated: 2025-09-14 06:30:43
+Model Used: llama-3.3-70b-versatile
+Execution Time: 1.68 seconds
+Status: FAILED
+
+============================================================
+
+📁 CHANGED FILES:
+
+  1. main.py
+  2. reports/run_summary.txt
+  3. reports/test_automation_report_2025-09-14_06-16-05.json
+  4. reports/test_automation_report_2025-09-14_06-16-05.txt
+  5. reports/test_automation_report_2025-09-14_06-16-05.xml
+  6. reports/test_automation_report_2025-09-14_06-20-32.json
+  7. reports/test_automation_report_2025-09-14_06-20-32.txt
+  8. reports/test_automation_report_2025-09-14_06-20-32.xml
+  9. tests_pr/pr_generated_tests.py
+
+🔍 SYNTAX VALIDATION:
+
+  main.py: ✅ PASS
+  generated_test_file: ✅ PASS
+
+🔍 ANALYZED FUNCTIONS/METHODS (2 total):
+
+  1. Function: add_numbers [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: main.py (lines 1-2)
+
+  2. Function: multiply_numbers [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: main.py (lines 4-5)
+
+🧪 TEST RESULTS:
+  Status: FAILURE
+
+📋 INDIVIDUAL TEST CASES:
+
+  1. test_add_numbers_edge_cases
+     Status: ✅ PASS
+
+  2. test_add_numbers_error_cases
+     Status: ✅ PASS
+
+  3. test_add_numbers_normal_cases
+     Status: ✅ PASS
+
+  4. test_multiply_numbers_edge_cases
+     Status: ✅ PASS
+
+  5. test_multiply_numbers_error_cases
+     Status: ❌ FAIL
+
+  6. test_multiply_numbers_normal_cases
+     Status: ✅ PASS
+
+  Test Output:
+  ────────────────────────────────────────
+  test_add_numbers_edge_cases (__main__.TestGeneratedCode.test_add_numbers_edge_cases) ... ok
+  test_add_numbers_error_cases (__main__.TestGeneratedCode.test_add_numbers_error_cases) ... ok
+  test_add_numbers_normal_cases (__main__.TestGeneratedCode.test_add_numbers_normal_cases) ... ok
+  test_multiply_numbers_edge_cases (__main__.TestGeneratedCode.test_multiply_numbers_edge_cases) ... ok
+  test_multiply_numbers_error_cases (__main__.TestGeneratedCode.test_multiply_numbers_error_cases) ... FAIL
+  test_multiply_numbers_normal_cases (__main__.TestGeneratedCode.test_multiply_numbers_normal_cases) ... ok
+  
+  ======================================================================
+  FAIL: test_multiply_numbers_error_cases (__main__.TestGeneratedCode.test_multiply_numbers_error_cases)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 45, in test_multiply_numbers_error_cases
+      with self.assertRaises(TypeError):
+  AssertionError: TypeError not raised
+  
+  ────────────────────────────────────────
+
+📊 COVERAGE METRICS:
+
+  Total Coverage: 69
+  Total Statements: 212
+  Missing Statements: 65
+
+📝 EXECUTION LOGS (Last 25 entries):
+
+  [2025-09-14 06:30:41] [INFO] 🚀 Starting Enhanced Python Project Test Automation
+  [2025-09-14 06:30:41] [INFO] 📁 Detected 9 changed files: main.py, reports/run_summary.txt, reports/test_automation_report_2025-09-14_06-16-05.json, reports/test_automation_report_2025-09-14_06-16-05.txt, reports/test_automation_report_2025-09-14_06-16-05.xml, reports/test_automation_report_2025-09-14_06-20-32.json, reports/test_automation_report_2025-09-14_06-20-32.txt, reports/test_automation_report_2025-09-14_06-20-32.xml, tests_pr/pr_generated_tests.py
+  [2025-09-14 06:30:41] [INFO] 🔍 Analyzing changed file: main.py
+  [2025-09-14 06:30:41] [INFO] ✅ Found 2 functions/methods in main.py
+  [2025-09-14 06:30:41] [INFO] 📊 Analysis Summary:
+  [2025-09-14 06:30:41] [INFO]    Total Functions/Methods: 2
+  [2025-09-14 06:30:41] [INFO]    Functions: 2, Methods: 0
+  [2025-09-14 06:30:41] [INFO]    Average Complexity: 1.0/10
+  [2025-09-14 06:30:41] [INFO] 🧠 Generating comprehensive test cases using llama-3.3-70b-versatile...
+  [2025-09-14 06:30:41] [INFO] 🤖 Generating test code (attempt 1/3)...
+  [2025-09-14 06:30:42] [SUCCESS] ✅ Generated syntactically valid test code
+  [2025-09-14 06:30:42] [INFO] ✔️ Formatted: pr_generated_tests.py
+  [2025-09-14 06:30:42] [SUCCESS] ✅ Generated and saved syntactically valid tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-14 06:30:42] [INFO] 🏃 Executing generated tests with comprehensive coverage analysis...
+  [2025-09-14 06:30:42] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-14 06:30:43] [ERROR] ❌ Tests failed.
+  [2025-09-14 06:30:43] [ERROR] --- Test Output ---
+  [2025-09-14 06:30:43] [ERROR] 
+  [2025-09-14 06:30:43] [ERROR] test_add_numbers_edge_cases (__main__.TestGeneratedCode.test_add_numbers_edge_cases) ... ok
+test_add_numbers_error_cases (__main__.TestGeneratedCode.test_add_numbers_error_cases) ... ok
+test_add_numbers_normal_cases (__main__.TestGeneratedCode.test_add_numbers_normal_cases) ... ok
+test_multiply_numbers_edge_cases (__main__.TestGeneratedCode.test_multiply_numbers_edge_cases) ... ok
+test_multiply_numbers_error_cases (__main__.TestGeneratedCode.test_multiply_numbers_error_cases) ... FAIL
+test_multiply_numbers_normal_cases (__main__.TestGeneratedCode.test_multiply_numbers_normal_cases) ... ok
+
+======================================================================
+FAIL: test_multiply_numbers_error_cases (__main__.TestGeneratedCode.test_multiply_numbers_error_cases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 45, in test_multiply_numbers_error_cases
+    with self.assertRaises(TypeError):
+AssertionError: TypeError not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+FAILED (failures=1)
+
+  [2025-09-14 06:30:43] [ERROR] -------------------
+  [2025-09-14 06:30:43] [INFO] 
+🎯 Code Coverage: 69%
+  [2025-09-14 06:30:43] [WARNING] 🟠 Moderate coverage, more comprehensive tests recommended
+  [2025-09-14 06:30:43] [INFO] 📄 JSON report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-14_06-30-43.json
+  [2025-09-14 06:30:43] [INFO] 📄 XML report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-14_06-30-43.xml
+
+============================================================
+Report completed at: 2025-09-14 06:30:43
