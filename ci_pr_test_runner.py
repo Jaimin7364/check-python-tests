@@ -65,6 +65,17 @@ class TestCaseResult:
     error_message: str = ""
     failure_reason: str = ""
     test_method: str = ""
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "name": self.name,
+            "status": self.status,
+            "execution_time": self.execution_time,
+            "error_message": self.error_message,
+            "failure_reason": self.failure_reason,
+            "test_method": self.test_method
+        }
 
 @dataclass
 class TestReport:
@@ -600,58 +611,85 @@ Generate the complete test file now:"""
         """Parse unittest output to extract individual test case results"""
         test_cases = []
         
-        # Parse test output for individual test results
-        lines = (test_output + "\n" + test_stderr).split('\n')
+        # Combine output for parsing
+        full_output = test_output + "\n" + test_stderr
+        lines = full_output.split('\n')
         
-        # Look for test method executions and their results
-        current_test = None
+        # Look for verbose unittest output patterns
+        test_pattern = re.compile(r'^(\w+\.)?test_\w+.*\.\.\.')
+        result_pattern = re.compile(r'^(test_\w+).*?\.\.\.\s+(ok|FAIL|ERROR|SKIP)')
+        
+        # Also look for test method names in failure/error blocks
+        failure_test_pattern = re.compile(r'^(FAIL|ERROR):\s+(test_\w+)')
+        
+        current_failures = {}  # Store failure info by test name
         in_failure_block = False
+        current_failure_test = None
         failure_lines = []
         
         for line in lines:
-            line = line.strip()
+            line_stripped = line.strip()
             
-            # Match test method execution pattern
-            if line.startswith('test_') and '(' in line and ')' in line:
-                if current_test:
-                    # Save previous test if any
-                    test_cases.append(current_test)
+            # Check for test execution results (verbose format)
+            result_match = result_pattern.match(line_stripped)
+            if result_match:
+                test_name = result_match.group(1)
+                status = result_match.group(2)
                 
-                # Extract test method name
-                test_name = line.split('(')[0].strip()
-                current_test = TestCaseResult(
+                # Map unittest results to our format
+                if status == 'ok':
+                    final_status = 'PASS'
+                elif status == 'FAIL':
+                    final_status = 'FAIL'
+                elif status == 'ERROR':
+                    final_status = 'ERROR'
+                elif status == 'SKIP':
+                    final_status = 'SKIP'
+                else:
+                    final_status = 'UNKNOWN'
+                
+                test_case = TestCaseResult(
                     name=test_name,
-                    status="PASS",  # Default to PASS, will update if we find failures
-                    test_method=test_name
+                    status=final_status,
+                    test_method=test_name,
+                    failure_reason=current_failures.get(test_name, "")
                 )
+                test_cases.append(test_case)
+                continue
             
-            # Check for failure indicators
-            elif 'FAIL:' in line or 'ERROR:' in line:
-                if current_test:
-                    if 'FAIL:' in line:
-                        current_test.status = "FAIL"
-                    else:
-                        current_test.status = "ERROR"
-                    in_failure_block = True
-                    failure_lines = []
-            
-            elif in_failure_block and line.startswith('='):
-                # End of failure block
-                if current_test and failure_lines:
-                    current_test.failure_reason = '\n'.join(failure_lines[:5])  # Limit to first 5 lines
-                in_failure_block = False
+            # Check for failure/error headers
+            failure_match = failure_test_pattern.match(line_stripped)
+            if failure_match:
+                current_failure_test = failure_match.group(2)
+                in_failure_block = True
                 failure_lines = []
+                continue
             
-            elif in_failure_block:
-                failure_lines.append(line)
+            # Check for end of failure block
+            if in_failure_block and line_stripped.startswith('='):
+                if current_failure_test and failure_lines:
+                    # Take first few lines of failure message
+                    current_failures[current_failure_test] = '\n'.join(failure_lines[:3])
+                in_failure_block = False
+                current_failure_test = None
+                failure_lines = []
+                continue
+            
+            # Collect failure details
+            if in_failure_block and line_stripped:
+                failure_lines.append(line_stripped)
         
-        # Add the last test if any
-        if current_test:
-            test_cases.append(current_test)
-        
-        # If no individual tests were parsed, try to extract test names from the test file
+        # If no tests were found in output, try to extract from test file
         if not test_cases:
             test_cases = self._extract_test_methods_from_file()
+            
+            # Try to determine status from overall output
+            if "FAILED" in full_output or "ERROR" in full_output:
+                for test_case in test_cases:
+                    test_case.status = "FAIL"
+            elif "OK" in full_output or test_cases:
+                for test_case in test_cases:
+                    test_case.status = "PASS"
         
         return test_cases
     
@@ -719,13 +757,13 @@ Generate the complete test file now:"""
                 coverage_cmd = [
                     python_executable, "-m", "coverage", "run", 
                     f"--include={include_patterns}",
-                    "-m", "unittest", str(test_file_path.stem), "-v"
+                    str(test_file_path), "-v"
                 ]
             else:
                 coverage_cmd = [
                     python_executable, "-m", "coverage", "run", 
                     "--source=.",
-                    "-m", "unittest", str(test_file_path.stem), "-v"
+                    str(test_file_path), "-v"
                 ]
             
             # Execute tests with timeout
@@ -837,16 +875,7 @@ Generate the complete test file now:"""
                 for func in report.analyzed_functions
             ],
             "test_results": report.test_results,
-            "test_cases": [
-                {
-                    "name": test_case.name,
-                    "status": test_case.status,
-                    "execution_time": test_case.execution_time,
-                    "failure_reason": test_case.failure_reason,
-                    "test_method": test_case.test_method
-                }
-                for test_case in report.test_cases
-            ],
+            "test_cases": [test_case.to_dict() for test_case in report.test_cases],
             "coverage_metrics": report.coverage_metrics,
             "execution_logs": report.logs
         }
