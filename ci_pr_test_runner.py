@@ -6,27 +6,43 @@ import re
 import ast
 import hashlib
 import xml.etree.ElementTree as ET
+import tempfile
+import importlib.util
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Set, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 
 from groq import Groq
 
 # --- Configuration ---
-# Use an environment variable for the Groq API Key
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_API_KEY:
     print("❌ Error: GROQ_API_KEY environment variable not set.")
     sys.exit(1)
 
-# Use the Llama 3.1 70B model
 MODEL_ID = "llama-3.3-70b-versatile"
 DEFAULT_TEST_DIR = "tests_pr"
 
 @dataclass
+class TypeInfo:
+    """Type information for function parameters and return types"""
+    param_types: Dict[str, str] = field(default_factory=dict)
+    return_type: Optional[str] = None
+    has_self: bool = False
+    has_cls: bool = False
+
+@dataclass
+class ImportInfo:
+    """Information about imports needed for a function"""
+    module_imports: Set[str] = field(default_factory=set)
+    from_imports: Dict[str, Set[str]] = field(default_factory=dict)
+    local_classes: Set[str] = field(default_factory=set)
+    third_party_imports: Set[str] = field(default_factory=set)
+
+@dataclass
 class FunctionInfo:
-    """Information about a function in the codebase"""
+    """Enhanced information about a function in the codebase"""
     name: str
     file_path: str
     code: str
@@ -34,6 +50,11 @@ class FunctionInfo:
     line_end: int
     is_method: bool = False
     class_name: Optional[str] = None
+    docstring: Optional[str] = None
+    type_info: TypeInfo = field(default_factory=TypeInfo)
+    import_info: ImportInfo = field(default_factory=ImportInfo)
+    dependencies: Set[str] = field(default_factory=set)
+    complexity_score: int = 1
 
 @dataclass
 class TestReport:
@@ -42,32 +63,149 @@ class TestReport:
     model_name: str
     changed_files: List[str]
     analyzed_functions: List[FunctionInfo]
-    test_results: Dict[str, any]
+    test_results: Dict[str, Any]
     coverage_metrics: Dict[str, str]
     status: str
     execution_time: float
     logs: List[str] = field(default_factory=list)
+    syntax_validation: Dict[str, bool] = field(default_factory=dict)
+
+class CodeAnalyzer:
+    """Enhanced code analyzer for better function understanding"""
+    
+    def __init__(self, project_root: Path):
+        self.project_root = project_root
+        self.builtin_types = {'int', 'str', 'float', 'bool', 'list', 'dict', 'tuple', 'set', 'bytes', 'None'}
+    
+    def extract_type_info(self, node: ast.FunctionDef) -> TypeInfo:
+        """Extract comprehensive type information from function definition"""
+        type_info = TypeInfo()
+        
+        # Extract parameter types
+        for arg in node.args.args:
+            param_name = arg.arg
+            if param_name == 'self':
+                type_info.has_self = True
+            elif param_name == 'cls':
+                type_info.has_cls = True
+            
+            if arg.annotation:
+                type_info.param_types[param_name] = ast.unparse(arg.annotation)
+        
+        # Extract return type
+        if node.returns:
+            type_info.return_type = ast.unparse(node.returns)
+        
+        return type_info
+    
+    def extract_imports_from_file(self, file_path: Path) -> ImportInfo:
+        """Extract all imports from a Python file"""
+        import_info = ImportInfo()
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            tree = ast.parse(content, filename=file_path.name)
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        import_info.module_imports.add(alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    module = node.module or ''
+                    if module not in import_info.from_imports:
+                        import_info.from_imports[module] = set()
+                    for alias in node.names:
+                        import_info.from_imports[module].add(alias.name)
+                elif isinstance(node, ast.ClassDef):
+                    import_info.local_classes.add(node.name)
+        
+        except (SyntaxError, FileNotFoundError):
+            pass
+        
+        return import_info
+    
+    def calculate_complexity_score(self, node: ast.FunctionDef) -> int:
+        """Calculate a simple complexity score for the function"""
+        score = 1
+        
+        for child in ast.walk(node):
+            if isinstance(child, (ast.If, ast.While, ast.For, ast.Try)):
+                score += 1
+            elif isinstance(child, ast.ExceptHandler):
+                score += 1
+            elif isinstance(child, (ast.And, ast.Or)):
+                score += 1
+        
+        return min(score, 10)  # Cap at 10
+
+class TestValidator:
+    """Validates generated test code for syntax and basic correctness"""
+    
+    def __init__(self, project_root: Path):
+        self.project_root = project_root
+    
+    def validate_syntax(self, test_code: str) -> Tuple[bool, List[str]]:
+        """Validate Python syntax of generated test code"""
+        errors = []
+        
+        try:
+            # First, try to parse the AST
+            ast.parse(test_code)
+            
+            # Try to compile the code
+            compile(test_code, '<test_code>', 'exec')
+            
+            return True, []
+        except SyntaxError as e:
+            errors.append(f"Syntax Error: {e.msg} at line {e.lineno}")
+        except Exception as e:
+            errors.append(f"Compilation Error: {str(e)}")
+        
+        return False, errors
+    
+    def validate_imports(self, test_code: str, available_modules: Set[str]) -> Tuple[bool, List[str]]:
+        """Validate that all imports in test code are available"""
+        errors = []
+        
+        try:
+            tree = ast.parse(test_code)
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        module_name = alias.name.split('.')[0]
+                        if module_name not in available_modules and module_name not in {'unittest', 'unittest.mock', 'mock'}:
+                            errors.append(f"Unavailable import: {alias.name}")
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module:
+                        module_name = node.module.split('.')[0]
+                        if module_name not in available_modules and module_name not in {'unittest', 'unittest.mock', 'mock'}:
+                            errors.append(f"Unavailable from-import: {node.module}")
+        
+        except SyntaxError:
+            errors.append("Cannot parse test code for import validation")
+        
+        return len(errors) == 0, errors
 
 class ChangeAnalyzerAndTester:
     """
-    Analyzes code changes in a PR and generates/runs tests using a Groq LLM.
+    Enhanced analyzer and tester with improved code generation and validation
     """
     def __init__(self):
         self.project_root = Path(os.getcwd())
-        # Add project root to the Python path
         sys.path.insert(0, str(self.project_root))
         
         self.test_dir = self.project_root / DEFAULT_TEST_DIR
         self.test_dir.mkdir(exist_ok=True)
         
-        # Create reports directory
         self.reports_dir = self.project_root / "reports"
         self.reports_dir.mkdir(exist_ok=True)
         
-        # Initialize the Groq client
         self.client = Groq(api_key=GROQ_API_KEY)
+        self.code_analyzer = CodeAnalyzer(self.project_root)
+        self.test_validator = TestValidator(self.project_root)
         
-        # Initialize reporting variables
         self.start_time = datetime.now()
         self.logs = []
         self.model_name = MODEL_ID
@@ -77,7 +215,7 @@ class ChangeAnalyzerAndTester:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_entry = f"[{timestamp}] [{level}] {message}"
         self.logs.append(log_entry)
-        print(message)  # Still print to console
+        print(message)
 
     def _get_changed_files(self) -> List[str]:
         """Gets changed files from the GITHUB_ENV variable."""
@@ -91,148 +229,369 @@ class ChangeAnalyzerAndTester:
         return changed_files
 
     def _extract_functions_from_file(self, file_path: Path) -> List[FunctionInfo]:
-        """Extracts function and method definitions from Python code using AST."""
+        """Enhanced function extraction with detailed analysis"""
         functions = []
+        
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             tree = ast.parse(content, filename=file_path.name)
             
+            # Get file-level imports
+            file_imports = self.code_analyzer.extract_imports_from_file(file_path)
+            
+            # Find all classes first
+            classes = {}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    classes[node.name] = node
+            
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    # Determine if it's a method and get class context
                     is_method = False
                     class_name = None
-                    # A simple check for methods by inspecting the parent
-                    parent = next((n for n in ast.walk(tree) if hasattr(n, 'body') and node in n.body), None)
-                    if isinstance(parent, ast.ClassDef):
-                        is_method = True
-                        class_name = parent.name
+                    parent_class = None
                     
-                    # Get the source code for the function
+                    for class_node in classes.values():
+                        if node in class_node.body:
+                            is_method = True
+                            class_name = class_node.name
+                            parent_class = class_node
+                            break
+                    
+                    # Extract function code
                     start_line = node.lineno
                     end_line = node.end_lineno
                     lines = content.splitlines()
                     func_code = "\n".join(lines[start_line-1:end_line])
-
-                    functions.append(FunctionInfo(
+                    
+                    # Extract docstring
+                    docstring = ast.get_docstring(node)
+                    
+                    # Extract type information
+                    type_info = self.code_analyzer.extract_type_info(node)
+                    
+                    # Calculate complexity
+                    complexity = self.code_analyzer.calculate_complexity_score(node)
+                    
+                    # Create function info
+                    func_info = FunctionInfo(
                         name=node.name,
                         file_path=str(file_path.relative_to(self.project_root)),
                         code=func_code,
                         line_start=start_line,
                         line_end=end_line,
                         is_method=is_method,
-                        class_name=class_name
-                    ))
+                        class_name=class_name,
+                        docstring=docstring,
+                        type_info=type_info,
+                        import_info=file_imports,
+                        complexity_score=complexity
+                    )
+                    
+                    functions.append(func_info)
+        
         except SyntaxError as e:
             self._log(f"⚠️ Syntax error in {file_path}: {e}", "WARNING")
+        except Exception as e:
+            self._log(f"⚠️ Error analyzing {file_path}: {e}", "WARNING")
+        
         return functions
 
-    def _invoke_llm_for_generation(self, prompt: str) -> str:
-        """Invokes the Groq LLM for code generation."""
-        try:
-            # Groq API call
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {"role": "user", "content": prompt},
-                ],
-                model=MODEL_ID,
-                temperature=0.1,
-            )
+    def _build_comprehensive_prompt(self, functions: List[FunctionInfo]) -> str:
+        """Build a comprehensive, structured prompt for better test generation"""
+        
+        # Analyze all functions to determine imports and dependencies
+        all_imports = set()
+        all_from_imports = {}
+        all_classes = set()
+        
+        for func in functions:
+            all_imports.update(func.import_info.module_imports)
+            for module, items in func.import_info.from_imports.items():
+                if module not in all_from_imports:
+                    all_from_imports[module] = set()
+                all_from_imports[module].update(items)
+            all_classes.update(func.import_info.local_classes)
+        
+        # Build import statements
+        import_statements = []
+        
+        # Add standard imports
+        import_statements.extend([
+            "import unittest",
+            "from unittest.mock import Mock, patch, MagicMock",
+            "import sys",
+            "from pathlib import Path"
+        ])
+        
+        # Add project-specific imports
+        for module in sorted(all_imports):
+            if not module.startswith('__'):
+                import_statements.append(f"import {module}")
+        
+        for module, items in all_from_imports.items():
+            if module and not module.startswith('__'):
+                items_str = ', '.join(sorted(items))
+                import_statements.append(f"from {module} import {items_str}")
+        
+        # Create function analysis section
+        function_analyses = []
+        for i, func in enumerate(functions, 1):
+            analysis = [
+                f"## Function {i}: {func.name}",
+                f"**Type**: {'Method' if func.is_method else 'Function'}",
+                f"**File**: {func.file_path}",
+                f"**Lines**: {func.line_start}-{func.line_end}",
+                f"**Complexity Score**: {func.complexity_score}/10"
+            ]
             
-            generated_code = chat_completion.choices[0].message.content.strip()
+            if func.class_name:
+                analysis.append(f"**Class**: {func.class_name}")
+            
+            if func.type_info.param_types:
+                param_info = []
+                for param, ptype in func.type_info.param_types.items():
+                    param_info.append(f"{param}: {ptype}")
+                analysis.append(f"**Parameters**: {', '.join(param_info)}")
+            
+            if func.type_info.return_type:
+                analysis.append(f"**Returns**: {func.type_info.return_type}")
+            
+            if func.docstring:
+                analysis.append(f"**Docstring**: {func.docstring[:200]}...")
+            
+            analysis.append("**Code**:")
+            analysis.append("```python")
+            analysis.append(func.code)
+            analysis.append("```")
+            
+            function_analyses.append("\n".join(analysis))
+        
+        # Build the comprehensive prompt
+        prompt = f"""You are an expert Python unit testing engineer. Generate comprehensive, syntactically correct unit tests using Python's unittest framework.
 
-            # Clean up markdown code fences
-            if "```python" in generated_code:
-                code_start = generated_code.find("```python") + len("```python")
-                code_end = generated_code.rfind("```")
-                if code_end > code_start:
-                    generated_code = generated_code[code_start:code_end].strip()
+## CRITICAL REQUIREMENTS FOR CODE GENERATION:
+
+### 1. SYNTAX AND STRUCTURE:
+- Generate ONLY valid Python code with no syntax errors
+- Use proper indentation (4 spaces)
+- Include proper class and method definitions
+- Ensure all parentheses, brackets, and quotes are balanced
+- Use proper exception handling syntax
+
+### 2. IMPORTS (Use these exact imports):
+```python
+{chr(10).join(import_statements)}
+```
+
+### 3. TEST CLASS STRUCTURE:
+```python
+class TestGeneratedCode(unittest.TestCase):
+    def setUp(self):
+        # Setup code here if needed
+        pass
+    
+    def test_function_name(self):
+        # Test implementation
+        pass
+```
+
+### 4. FUNCTIONS TO TEST:
+
+{chr(10).join(function_analyses)}
+
+## GENERATION RULES:
+
+### A. For Regular Functions:
+- Import the function directly
+- Test with various input types and edge cases
+- Use appropriate assertions (assertEqual, assertTrue, assertRaises, etc.)
+
+### B. For Class Methods:
+- Create class instances in setUp() or individual tests
+- Test both instance and class methods appropriately
+- Mock external dependencies when necessary
+
+### C. Test Coverage Strategy:
+- **Normal cases**: Test expected functionality
+- **Edge cases**: Empty inputs, None values, boundary conditions
+- **Error cases**: Invalid inputs, exception scenarios
+- **Type validation**: Test with correct and incorrect types
+
+### D. Mock Strategy:
+- Mock file I/O operations
+- Mock network calls
+- Mock external dependencies
+- Use unittest.mock.patch for system calls
+
+### E. Assertions to Use:
+- assertEqual(a, b) - for exact matches
+- assertTrue(condition) - for boolean conditions
+- assertFalse(condition) - for negative boolean conditions
+- assertRaises(Exception, callable) - for exception testing
+- assertIsInstance(obj, type) - for type checking
+- assertIn(item, container) - for membership testing
+
+## OUTPUT FORMAT:
+Generate ONLY the complete Python test file with:
+1. All necessary imports at the top
+2. One TestCase class
+3. setUp method if needed
+4. Individual test methods for each function
+5. if __name__ == '__main__': unittest.main() at the end
+
+## VALIDATION CHECKLIST:
+Before outputting, ensure:
+- [ ] No syntax errors
+- [ ] All imports are valid
+- [ ] All test methods start with 'test_'
+- [ ] Proper exception handling
+- [ ] Balanced parentheses and quotes
+- [ ] Correct indentation
+- [ ] Valid Python identifiers
+
+Generate the complete test file now:"""
+
+        return prompt
+
+    def _invoke_llm_for_generation(self, prompt: str, max_retries: int = 3) -> str:
+        """Enhanced LLM invocation with retry logic and validation"""
+        
+        for attempt in range(max_retries):
+            try:
+                self._log(f"🤖 Generating test code (attempt {attempt + 1}/{max_retries})...", "INFO")
+                
+                chat_completion = self.client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "You are a Python testing expert. Generate only syntactically correct, well-structured unit tests. Never include explanations or markdown formatting in your response - only pure Python code."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    model=MODEL_ID,
+                    temperature=0.1,
+                    max_tokens=4000,
+                )
+                
+                generated_code = chat_completion.choices[0].message.content.strip()
+                
+                # Clean up markdown code fences if present
+                if "```python" in generated_code:
+                    code_start = generated_code.find("```python") + len("```python")
+                    code_end = generated_code.rfind("```")
+                    if code_end > code_start:
+                        generated_code = generated_code[code_start:code_end].strip()
+                
+                if "```" in generated_code and "```python" not in generated_code:
+                    # Handle generic code fences
+                    code_start = generated_code.find("```") + 3
+                    code_end = generated_code.rfind("```")
+                    if code_end > code_start:
+                        generated_code = generated_code[code_start:code_end].strip()
+                
+                # Validate syntax
+                is_valid, syntax_errors = self.test_validator.validate_syntax(generated_code)
+                
+                if is_valid:
+                    self._log("✅ Generated syntactically valid test code", "SUCCESS")
+                    return generated_code
                 else:
-                    generated_code = ""
-            return generated_code
-        except Exception as e:
-            self._log(f"❌ Error generating test code with Groq LLM: {e}", "ERROR")
-            return ""
+                    self._log(f"⚠️ Syntax validation failed (attempt {attempt + 1}): {'; '.join(syntax_errors)}", "WARNING")
+                    if attempt < max_retries - 1:
+                        # Add syntax error feedback to prompt for retry
+                        prompt += f"\n\nPREVIOUS ATTEMPT HAD SYNTAX ERRORS:\n{'; '.join(syntax_errors)}\n\nPlease fix these issues and generate valid Python code."
+                    
+            except Exception as e:
+                self._log(f"❌ Error in LLM generation (attempt {attempt + 1}): {e}", "ERROR")
+                if attempt == max_retries - 1:
+                    return ""
+        
+        self._log("❌ Failed to generate valid test code after all retries", "ERROR")
+        return ""
 
     def _generate_test_suite(self, functions: List[FunctionInfo]) -> str:
-        """Generates a combined test file for multiple functions/methods."""
+        """Generate test suite with enhanced validation"""
         if not functions:
             return ""
 
-        functions_info = []
-        imports_by_file = {}
+        # Build comprehensive prompt
+        prompt = self._build_comprehensive_prompt(functions)
         
-        for func in functions:
-            functions_info.append(f"Function/Method: {func.name}\nFile: {func.file_path}\nCode: {func.code}")
+        # Generate test code with retries
+        test_code = self._invoke_llm_for_generation(prompt)
+        
+        if not test_code:
+            return ""
+        
+        # Additional post-processing validation
+        is_valid, errors = self.test_validator.validate_syntax(test_code)
+        if not is_valid:
+            self._log(f"⚠️ Final validation failed: {'; '.join(errors)}", "WARNING")
+            # Try to fix common issues
+            test_code = self._fix_common_syntax_issues(test_code)
+        
+        return test_code
+
+    def _fix_common_syntax_issues(self, code: str) -> str:
+        """Fix common syntax issues in generated code"""
+        lines = code.split('\n')
+        fixed_lines = []
+        
+        for line in lines:
+            # Fix common indentation issues
+            if line.strip() and not line.startswith(' ') and not line.startswith('import') and not line.startswith('from') and not line.startswith('class') and not line.startswith('def ') and not line.startswith('if __name__'):
+                if fixed_lines and (fixed_lines[-1].strip().endswith(':') or 'def ' in fixed_lines[-1]):
+                    line = '    ' + line
             
-            # Get module name from file path (remove .py extension)
-            module_name = Path(func.file_path).stem
+            # Fix missing colons after class/def/if statements
+            stripped = line.strip()
+            if (stripped.startswith(('def ', 'class ', 'if ', 'elif ', 'else', 'try', 'except', 'finally', 'for ', 'while ')) 
+                and not stripped.endswith(':') 
+                and not stripped.endswith(':\\') 
+                and '#' not in stripped):
+                line = line + ':'
             
-            if module_name not in imports_by_file:
-                imports_by_file[module_name] = {'functions': set(), 'classes': set()}
-            
-            # Collect imports properly by file
-            if func.class_name:
-                imports_by_file[module_name]['classes'].add(func.class_name)
-            else:
-                imports_by_file[module_name]['functions'].add(func.name)
+            fixed_lines.append(line)
         
-        # Generate imports grouped by file
-        imports_set = set()
-        for module_name, items in imports_by_file.items():
-            all_items = list(items['functions']) + list(items['classes'])
-            if all_items:
-                imports_set.add(f"from {module_name} import {', '.join(sorted(all_items))}")
-        
-        all_imports = "\n".join(imports_set)
-        
-        prompt = f"""
-You are an expert Python unit testing engineer. Generate a comprehensive test file using Python's `unittest` framework.
-
-FUNCTIONS/METHODS TO TEST:
-{chr(10).join(functions_info)}
-
-REQUIRED IMPORTS (use these exact imports):
-{all_imports}
-
-CRITICAL INSTRUCTIONS:
-1. Use ONLY the imports provided above - do not make up class names or imports
-2. Create a `unittest.TestCase` class for the tests.
-3. For each function or method, create a test method (e.g., `test_function_name`).
-4. For class methods, instantiate the class in setUp() or within test methods
-5. Include test cases for normal behavior, edge cases, and error conditions.
-6. Use `self.assertEqual`, `self.assertTrue`, `self.assertRaises`, etc.
-7. Provide meaningful docstrings.
-8. Use a `if __name__ == '__main__':` block to run the tests.
-9. IMPORTANT: Only test the functions/methods that are explicitly provided in the function list above
-
-Generate ONLY the complete, runnable Python code for the test file. No explanations.
-"""
-        return self._invoke_llm_for_generation(prompt)
+        return '\n'.join(fixed_lines)
 
     def _format_python_code(self, file_path: Path):
-        """Formats a Python file using autopep8."""
+        """Enhanced code formatting with validation"""
         try:
-            subprocess.run(
-                ['autopep8', '--in-place', str(file_path)],
+            # First, validate the file can be parsed
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            try:
+                ast.parse(content)
+            except SyntaxError as e:
+                self._log(f"⚠️ Syntax error in generated test file: {e}", "WARNING")
+                return False
+            
+            # Try to format with autopep8
+            result = subprocess.run(
+                ['autopep8', '--in-place', '--aggressive', '--aggressive', str(file_path)],
                 check=True,
                 capture_output=True,
                 text=True
             )
             self._log(f"✔️ Formatted: {file_path.name}", "INFO")
+            return True
+            
         except FileNotFoundError:
             self._log("⚠️ autopep8 not found. Skipping code formatting.", "WARNING")
+            return True
         except subprocess.CalledProcessError as e:
             self._log(f"❌ Failed to format {file_path.name}: {e.stderr}", "ERROR")
+            return False
 
-    def _execute_tests(self, test_file_path: Path, changed_files: List[str]) -> Dict[str, any]:
-        """Executes the generated test file with code coverage for only the changed files."""
+    def _execute_tests(self, test_file_path: Path, changed_files: List[str]) -> Dict[str, Any]:
+        """Enhanced test execution with better error handling"""
         self._log(f"🧪 Executing tests from {test_file_path}", "INFO")
         
-        # Get the current Python executable instead of hardcoded 'python'
         python_executable = sys.executable
         
-        # Set PYTHONPATH to include the project root for imports
+        # Set up environment
         env = os.environ.copy()
         current_pythonpath = env.get('PYTHONPATH', '')
         if current_pythonpath:
@@ -240,20 +599,28 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         else:
             env['PYTHONPATH'] = str(self.project_root)
         
-        # Filter only Python files from changed files
-        python_changed_files = []
-        for file_path_str in changed_files:
-            file_path = self.project_root / file_path_str
-            if file_path.exists() and file_path.suffix == '.py':
-                python_changed_files.append(file_path_str)
+        # Filter Python files
+        python_changed_files = [
+            file_path_str for file_path_str in changed_files
+            if (self.project_root / file_path_str).exists() 
+            and (self.project_root / file_path_str).suffix == '.py'
+        ]
         
         try:
-            # Run tests with coverage only for changed Python files
-            coverage_file = self.project_root / ".coverage"
+            # First, try to run the test file directly to check for import errors
+            dry_run = subprocess.run(
+                [python_executable, "-m", "py_compile", str(test_file_path)],
+                capture_output=True, text=True,
+                cwd=str(self.project_root),
+                env=env
+            )
             
+            if dry_run.returncode != 0:
+                self._log(f"❌ Test file compilation failed: {dry_run.stderr}", "ERROR")
+                return {"status": "failure", "output": f"Compilation failed: {dry_run.stderr}"}
+            
+            # Run tests with coverage
             if python_changed_files:
-                # Build coverage command with specific source files
-                # Use --include pattern to only measure coverage for changed files
                 include_patterns = ','.join(python_changed_files)
                 coverage_cmd = [
                     python_executable, "-m", "coverage", "run", 
@@ -261,17 +628,17 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
                     str(test_file_path)
                 ]
             else:
-                # Fallback to general coverage if no Python files changed
                 coverage_cmd = [
                     python_executable, "-m", "coverage", "run", 
                     "--source=.",
                     str(test_file_path)
                 ]
             
-            # First, run the tests with coverage
+            # Execute tests with timeout
             run_result = subprocess.run(
                 coverage_cmd,
-                capture_output=True, text=True, check=True,
+                capture_output=True, text=True, 
+                timeout=300,  # 5 minute timeout
                 cwd=str(self.project_root),
                 env=env
             )
@@ -279,53 +646,63 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             # Generate coverage report
             coverage_result = subprocess.run(
                 [python_executable, "-m", "coverage", "report", "--format=text"],
-                capture_output=True, text=True, check=True,
-                cwd=str(self.project_root),
-                env=env
-            )
-            
-            # Generate detailed coverage report
-            coverage_html_result = subprocess.run(
-                [python_executable, "-m", "coverage", "html", "-d", "htmlcov"],
                 capture_output=True, text=True,
                 cwd=str(self.project_root),
                 env=env
             )
             
-            self._log("✅ Tests passed.", "SUCCESS")
-            self._log(f"\n📊 Code Coverage Report (Changed Files Only):", "INFO")
-            self._log(coverage_result.stdout, "INFO")
-            
-            if coverage_html_result.returncode == 0:
-                self._log("📄 Detailed HTML coverage report generated in 'htmlcov/' directory", "INFO")
-            
-            return {
-                "status": "success", 
-                "output": run_result.stdout,
-                "coverage_report": coverage_result.stdout
-            }
-            
-        except subprocess.CalledProcessError as e:
-            self._log("❌ Tests failed.", "ERROR")
-            self._log("--- Test Output ---", "ERROR")
-            self._log(e.stdout, "ERROR")
-            self._log(e.stderr, "ERROR")
-            self._log("-------------------", "ERROR")
-            return {"status": "failure", "output": e.stdout + e.stderr}
+            if run_result.returncode == 0:
+                self._log("✅ Tests passed.", "SUCCESS")
+                self._log(f"\n📊 Code Coverage Report:", "INFO")
+                self._log(coverage_result.stdout, "INFO")
+                
+                return {
+                    "status": "success", 
+                    "output": run_result.stdout,
+                    "coverage_report": coverage_result.stdout,
+                    "stderr": run_result.stderr
+                }
+            else:
+                self._log("❌ Tests failed.", "ERROR")
+                self._log("--- Test Output ---", "ERROR")
+                self._log(run_result.stdout, "ERROR")
+                self._log(run_result.stderr, "ERROR")
+                self._log("-------------------", "ERROR")
+                
+                return {
+                    "status": "failure", 
+                    "output": run_result.stdout + run_result.stderr,
+                    "coverage_report": coverage_result.stdout if coverage_result.returncode == 0 else ""
+                }
+                
+        except subprocess.TimeoutExpired:
+            self._log("❌ Test execution timed out after 5 minutes", "ERROR")
+            return {"status": "failure", "output": "Test execution timed out"}
+        except Exception as e:
+            self._log(f"❌ Test execution failed: {e}", "ERROR")
+            return {"status": "failure", "output": f"Execution error: {str(e)}"}
 
     def _parse_coverage_metrics(self, coverage_output: str) -> Dict[str, str]:
-        """Parse coverage output to extract key metrics."""
+        """Enhanced coverage metrics parsing"""
         metrics = {}
+        if not coverage_output:
+            return metrics
+            
         lines = coverage_output.strip().split('\n')
         
         for line in lines:
             if 'TOTAL' in line:
-                # Extract total coverage percentage
                 parts = line.split()
                 if len(parts) >= 4:
                     try:
+                        # Extract various metrics
+                        statements = parts[1] if len(parts) > 1 else "0"
+                        missing = parts[2] if len(parts) > 2 else "0"
                         coverage_percent = parts[-1].rstrip('%')
+                        
                         metrics['total_coverage'] = coverage_percent
+                        metrics['total_statements'] = statements
+                        metrics['missing_statements'] = missing
                     except (ValueError, IndexError):
                         pass
                 break
@@ -333,8 +710,7 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         return metrics
 
     def _generate_json_report(self, report: TestReport) -> str:
-        """Generate JSON format report"""
-        # Convert dataclass to dictionary for JSON serialization
+        """Enhanced JSON report generation"""
         report_dict = {
             "title": "🚀 Python Project Test Automation Report",
             "generated": report.timestamp,
@@ -342,6 +718,7 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             "execution_time_seconds": report.execution_time,
             "status": report.status,
             "changed_files": report.changed_files,
+            "syntax_validation": report.syntax_validation,
             "analyzed_functions": [
                 {
                     "name": func.name,
@@ -350,6 +727,9 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
                     "line_end": func.line_end,
                     "is_method": func.is_method,
                     "class_name": func.class_name,
+                    "complexity_score": func.complexity_score,
+                    "has_type_hints": bool(func.type_info.param_types or func.type_info.return_type),
+                    "has_docstring": bool(func.docstring),
                     "code_snippet": func.code[:200] + "..." if len(func.code) > 200 else func.code
                 }
                 for func in report.analyzed_functions
@@ -362,10 +742,10 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         return json.dumps(report_dict, indent=2, ensure_ascii=False)
 
     def _generate_xml_report(self, report: TestReport) -> str:
-        """Generate XML format report"""
+        """Enhanced XML report generation"""
         root = ET.Element("test_automation_report")
         
-        # Header
+        # Header with additional metadata
         header = ET.SubElement(root, "header")
         ET.SubElement(header, "title").text = "🚀 Python Project Test Automation Report"
         ET.SubElement(header, "generated").text = report.timestamp
@@ -373,14 +753,14 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         ET.SubElement(header, "execution_time_seconds").text = str(report.execution_time)
         ET.SubElement(header, "status").text = report.status
         
-        # Changed files
-        changed_files_elem = ET.SubElement(root, "changed_files")
-        ET.SubElement(changed_files_elem, "count").text = str(len(report.changed_files))
-        for file_path in report.changed_files:
-            file_elem = ET.SubElement(changed_files_elem, "file")
-            file_elem.text = file_path
+        # Syntax validation results
+        syntax_elem = ET.SubElement(root, "syntax_validation")
+        for key, value in report.syntax_validation.items():
+            validation_elem = ET.SubElement(syntax_elem, "validation")
+            validation_elem.set("test", key)
+            validation_elem.text = str(value)
         
-        # Analyzed functions
+        # Enhanced function information
         functions_elem = ET.SubElement(root, "analyzed_functions")
         ET.SubElement(functions_elem, "count").text = str(len(report.analyzed_functions))
         for func in report.analyzed_functions:
@@ -390,18 +770,21 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             ET.SubElement(func_elem, "line_start").text = str(func.line_start)
             ET.SubElement(func_elem, "line_end").text = str(func.line_end)
             ET.SubElement(func_elem, "is_method").text = str(func.is_method)
+            ET.SubElement(func_elem, "complexity_score").text = str(func.complexity_score)
             if func.class_name:
                 ET.SubElement(func_elem, "class_name").text = func.class_name
             code_snippet = func.code[:200] + "..." if len(func.code) > 200 else func.code
             ET.SubElement(func_elem, "code_snippet").text = code_snippet
         
-        # Test results
+        # Test results with enhanced details
         test_results_elem = ET.SubElement(root, "test_results")
         ET.SubElement(test_results_elem, "status").text = report.test_results.get("status", "unknown")
         if "output" in report.test_results:
             ET.SubElement(test_results_elem, "output").text = report.test_results["output"]
         if "coverage_report" in report.test_results:
             ET.SubElement(test_results_elem, "coverage_report").text = report.test_results["coverage_report"]
+        if "stderr" in report.test_results:
+            ET.SubElement(test_results_elem, "stderr").text = report.test_results["stderr"]
         
         # Coverage metrics
         coverage_elem = ET.SubElement(root, "coverage_metrics")
@@ -420,7 +803,7 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         return ET.tostring(root, encoding='unicode', method='xml')
 
     def _generate_text_report(self, report: TestReport) -> str:
-        """Generate human-readable text format report"""
+        """Enhanced human-readable text format report"""
         lines = [
             "🚀 Python Project Test Automation Report",
             f"Generated: {report.timestamp}",
@@ -437,6 +820,17 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         for i, file_path in enumerate(report.changed_files, 1):
             lines.append(f"  {i}. {file_path}")
         
+        # Syntax validation results
+        if report.syntax_validation:
+            lines.extend([
+                "",
+                "🔍 SYNTAX VALIDATION:",
+                ""
+            ])
+            for test_name, is_valid in report.syntax_validation.items():
+                status = "✅ PASS" if is_valid else "❌ FAIL"
+                lines.append(f"  {test_name}: {status}")
+        
         lines.extend([
             "",
             f"🔍 ANALYZED FUNCTIONS/METHODS ({len(report.analyzed_functions)} total):",
@@ -446,7 +840,11 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         for i, func in enumerate(report.analyzed_functions, 1):
             func_type = "Method" if func.is_method else "Function"
             class_info = f" (Class: {func.class_name})" if func.class_name else ""
-            lines.append(f"  {i}. {func_type}: {func.name}{class_info}")
+            complexity_info = f" [Complexity: {func.complexity_score}/10]"
+            type_hints = " [Type Hints: ✅]" if func.type_info.param_types or func.type_info.return_type else " [Type Hints: ❌]"
+            docstring_info = " [Docstring: ✅]" if func.docstring else " [Docstring: ❌]"
+            
+            lines.append(f"  {i}. {func_type}: {func.name}{class_info}{complexity_info}{type_hints}{docstring_info}")
             lines.append(f"     File: {func.file_path} (lines {func.line_start}-{func.line_end})")
             lines.append("")
         
@@ -460,7 +858,7 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             lines.extend([
                 "  Test Output:",
                 "  " + "─" * 40,
-                *[f"  {line}" for line in report.test_results["output"].split('\n')[:10]],
+                *[f"  {line}" for line in report.test_results["output"].split('\n')[:15]],
                 "  " + "─" * 40,
                 ""
             ])
@@ -477,11 +875,11 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             lines.append("")
         
         lines.extend([
-            "📝 EXECUTION LOGS:",
+            "📝 EXECUTION LOGS (Last 25 entries):",
             ""
         ])
         
-        for log_entry in report.logs[-20:]:  # Show last 20 log entries
+        for log_entry in report.logs[-25:]:
             lines.append(f"  {log_entry}")
         
         lines.extend([
@@ -493,7 +891,7 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         return '\n'.join(lines)
 
     def _save_reports(self, report: TestReport):
-        """Save reports in multiple formats"""
+        """Save enhanced reports in multiple formats"""
         timestamp_str = report.timestamp.replace(":", "-").replace(" ", "_")
         base_filename = f"test_automation_report_{timestamp_str.split('_')[0]}_{timestamp_str.split('_')[1]}"
         
@@ -519,8 +917,8 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
         self._log(f"📄 Text report saved: {text_path}", "INFO")
 
     def run(self):
-        """Main runner for the CI script."""
-        self._log("🚀 Starting Python Project Test Automation", "INFO")
+        """Enhanced main runner with comprehensive validation"""
+        self._log("🚀 Starting Enhanced Python Project Test Automation", "INFO")
         
         changed_files = self._get_changed_files()
         if not changed_files:
@@ -528,27 +926,69 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             return
 
         all_changed_functions = []
+        syntax_validation = {}
+        
         for file_path_str in changed_files:
             file_path = self.project_root / file_path_str
             if file_path.exists() and file_path.suffix == '.py':
                 self._log(f"🔍 Analyzing changed file: {file_path_str}", "INFO")
-                functions = self._extract_functions_from_file(file_path)
-                all_changed_functions.extend(functions)
+                
+                # Validate file syntax first
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    ast.parse(content, filename=file_path.name)
+                    syntax_validation[file_path_str] = True
+                    
+                    functions = self._extract_functions_from_file(file_path)
+                    all_changed_functions.extend(functions)
+                    self._log(f"✅ Found {len(functions)} functions/methods in {file_path_str}", "INFO")
+                    
+                except SyntaxError as e:
+                    syntax_validation[file_path_str] = False
+                    self._log(f"❌ Syntax error in {file_path_str}: {e}", "ERROR")
+                except Exception as e:
+                    syntax_validation[file_path_str] = False
+                    self._log(f"❌ Error analyzing {file_path_str}: {e}", "ERROR")
 
         if not all_changed_functions:
-            self._log("No functions found in changed Python files. Exiting.", "WARNING")
+            self._log("No valid functions found in changed Python files. Exiting.", "WARNING")
+            execution_time = (datetime.now() - self.start_time).total_seconds()
+            
+            report = TestReport(
+                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                model_name=self.model_name,
+                changed_files=changed_files,
+                analyzed_functions=all_changed_functions,
+                test_results={"status": "skipped", "output": "No valid functions found"},
+                coverage_metrics={},
+                status="SKIPPED",
+                execution_time=execution_time,
+                logs=self.logs,
+                syntax_validation=syntax_validation
+            )
+            self._save_reports(report)
             return
 
-        self._log(f"🤖 Found {len(all_changed_functions)} functions/methods to test using {self.model_name}", "INFO")
+        # Log function analysis summary
+        total_functions = len(all_changed_functions)
+        methods_count = sum(1 for f in all_changed_functions if f.is_method)
+        functions_count = total_functions - methods_count
+        avg_complexity = sum(f.complexity_score for f in all_changed_functions) / total_functions
         
-        # Generate test suite using LLM
-        self._log(f"🧠 Generating test cases using {self.model_name}...", "INFO")
+        self._log(f"📊 Analysis Summary:", "INFO")
+        self._log(f"   Total Functions/Methods: {total_functions}", "INFO")
+        self._log(f"   Functions: {functions_count}, Methods: {methods_count}", "INFO")
+        self._log(f"   Average Complexity: {avg_complexity:.1f}/10", "INFO")
+        
+        # Generate test suite using enhanced LLM
+        self._log(f"🧠 Generating comprehensive test cases using {self.model_name}...", "INFO")
         test_content = self._generate_test_suite(all_changed_functions)
+        
         if not test_content:
             self._log("❌ Failed to generate test cases. Aborting.", "ERROR")
             execution_time = (datetime.now() - self.start_time).total_seconds()
             
-            # Create report for failed generation
             report = TestReport(
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 model_name=self.model_name,
@@ -558,23 +998,33 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
                 coverage_metrics={},
                 status="FAILED",
                 execution_time=execution_time,
-                logs=self.logs
+                logs=self.logs,
+                syntax_validation=syntax_validation
             )
             self._save_reports(report)
             return
 
+        # Save and validate test file
         test_file_name = "pr_generated_tests.py"
         test_file_path = self.test_dir / test_file_name
+        
         try:
             with open(test_file_path, 'w', encoding='utf-8') as f:
                 f.write(test_content)
-            self._format_python_code(test_file_path)
-            self._log(f"✅ Generated and saved tests to {test_file_path}", "SUCCESS")
+            
+            # Validate and format the generated test file
+            is_valid_syntax = self._format_python_code(test_file_path)
+            syntax_validation['generated_test_file'] = is_valid_syntax
+            
+            if is_valid_syntax:
+                self._log(f"✅ Generated and saved syntactically valid tests to {test_file_path}", "SUCCESS")
+            else:
+                self._log(f"⚠️ Generated tests have syntax issues, but saved to {test_file_path}", "WARNING")
+                
         except Exception as e:
             self._log(f"❌ Failed to save test file: {e}", "ERROR")
             execution_time = (datetime.now() - self.start_time).total_seconds()
             
-            # Create report for failed save
             report = TestReport(
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 model_name=self.model_name,
@@ -584,41 +1034,39 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
                 coverage_metrics={},
                 status="FAILED",
                 execution_time=execution_time,
-                logs=self.logs
+                logs=self.logs,
+                syntax_validation=syntax_validation
             )
             self._save_reports(report)
             return
 
-        # Execute tests and get coverage results
-        self._log("🏃 Executing generated tests with coverage analysis...", "INFO")
+        # Execute tests with enhanced error handling
+        self._log("🏃 Executing generated tests with comprehensive coverage analysis...", "INFO")
         test_results = self._execute_tests(test_file_path, changed_files)
         
         # Parse coverage metrics
         coverage_metrics = {}
-        if test_results["status"] == "success" and "coverage_report" in test_results:
+        if test_results.get("coverage_report"):
             coverage_metrics = self._parse_coverage_metrics(test_results["coverage_report"])
             if "total_coverage" in coverage_metrics:
                 coverage_percent = coverage_metrics["total_coverage"]
-                self._log(f"\n🎯 Changed Files Code Coverage: {coverage_percent}%", "INFO")
+                self._log(f"\n🎯 Code Coverage: {coverage_percent}%", "INFO")
                 
-                # Provide coverage feedback
                 try:
                     coverage_float = float(coverage_percent)
                     if coverage_float >= 90:
                         self._log("🟢 Excellent coverage!", "SUCCESS")
                     elif coverage_float >= 75:
-                        self._log("🟡 Good coverage, consider adding more tests", "INFO")
+                        self._log("🟡 Good coverage, consider adding edge case tests", "INFO")
                     elif coverage_float >= 50:
-                        self._log("🟠 Moderate coverage, more tests recommended", "WARNING")
+                        self._log("🟠 Moderate coverage, more comprehensive tests recommended", "WARNING")
                     else:
-                        self._log("🔴 Low coverage, significant testing gaps detected", "WARNING")
+                        self._log("🔴 Low coverage, significant testing improvements needed", "WARNING")
                 except ValueError:
                     pass
 
-        # Calculate execution time
+        # Calculate execution time and determine status
         execution_time = (datetime.now() - self.start_time).total_seconds()
-        
-        # Determine overall status
         overall_status = "SUCCESS" if test_results["status"] == "success" else "FAILED"
         
         # Create comprehensive report
@@ -631,12 +1079,21 @@ Generate ONLY the complete, runnable Python code for the test file. No explanati
             coverage_metrics=coverage_metrics,
             status=overall_status,
             execution_time=execution_time,
-            logs=self.logs
+            logs=self.logs,
+            syntax_validation=syntax_validation
         )
         
-        # Save reports in multiple formats
+        # Save comprehensive reports
         self._save_reports(report)
-        self._log(f"✨ Test automation completed in {execution_time:.2f} seconds with status: {overall_status}", "INFO")
+        
+        # Final summary
+        self._log(f"✨ Enhanced test automation completed in {execution_time:.2f} seconds", "INFO")
+        self._log(f"📊 Final Status: {overall_status}", "INFO")
+        self._log(f"🔧 Syntax Validation: {sum(syntax_validation.values())}/{len(syntax_validation)} files passed", "INFO")
+        
+        if coverage_metrics.get("total_coverage"):
+            self._log(f"📈 Coverage Achieved: {coverage_metrics['total_coverage']}%", "INFO")
+
 
 if __name__ == "__main__":
     runner = ChangeAnalyzerAndTester()

@@ -1,86 +1,284 @@
-name: PR Code Change Tester
+name: Enhanced PR Code Change Tester
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:  # Allow manual triggering
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
 
 jobs:
   test-changed-code:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Prevent hanging workflows
     permissions:
-      contents: write  # Changed from 'read' to 'write' to allow pushing reports
+      contents: write
       pull-requests: write
+      actions: read
+      checks: write
     
     steps:
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch full history
+          fetch-depth: 0  # Fetch full history for better git analysis
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.head_ref }}  # Checkout the PR branch
+          ref: ${{ github.head_ref }}
 
       - name: ⚙️ Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'  # Cache pip dependencies
 
-      - name: 📦 Install dependencies
+      - name: 🧹 Upgrade pip and setuptools
         run: |
-          python -m pip install --upgrade pip
-          # Install the Groq library
-          pip install groq coverage autopep8
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip --version
 
-      - name: 📝 Find changed files
-        id: changed-files-list
+      - name: 📦 Install system dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: 📋 Install Python dependencies
+        run: |
+          # Install requirements from requirements.txt if it exists
+          if [ -f requirements.txt ]; then
+            echo "📄 Installing from requirements.txt..."
+            pip install -r requirements.txt
+          else
+            echo "⚠️ No requirements.txt found, installing minimal dependencies..."
+          fi
+          
+          # Install additional testing dependencies
+          pip install groq coverage autopep8 pytest pytest-cov black isort flake8
+          
+          # Verify installations
+          echo "🔍 Verifying installations..."
+          python -c "import groq; print(f'Groq version: {groq.__version__}')"
+          python -c "import coverage; print('Coverage installed successfully')"
+          python -c "import autopep8; print('Autopep8 installed successfully')"
+
+      - name: 📝 Analyze changed files
+        id: changed-files-analysis
+        run: |
+          echo "🔍 Analyzing changed files..."
+          
+          # Get changed files between base and head
           git_diff_output=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          
+          # Filter for Python files only
+          python_files=$(echo "$git_diff_output" | grep -E '\.py$' | head -20 || true)  # Limit to 20 files max
+          
+          # Set environment variables
           echo "CHANGED_FILES=$(echo $git_diff_output | tr '\n' ' ')" >> $GITHUB_ENV
-          echo "Detected changed files:"
-          echo "$git_diff_output"
-      
-      - name: 🚀 Run AI-powered test runner
+          echo "PYTHON_CHANGED_FILES=$(echo $python_files | tr '\n' ' ')" >> $GITHUB_ENV
+          
+          # Log results
+          echo "📁 All changed files:"
+          echo "$git_diff_output" | sed 's/^/  - /'
+          
+          echo "🐍 Python files changed:"
+          if [ -n "$python_files" ]; then
+            echo "$python_files" | sed 's/^/  - /'
+          else
+            echo "  No Python files changed"
+          fi
+          
+          # Count files
+          total_files=$(echo "$git_diff_output" | wc -l)
+          python_file_count=$(echo "$python_files" | grep -v '^$' | wc -l || echo "0")
+          
+          echo "TOTAL_CHANGED_FILES=$total_files" >> $GITHUB_ENV
+          echo "PYTHON_FILES_COUNT=$python_file_count" >> $GITHUB_ENV
+
+      - name: 🔍 Pre-flight validation
+        run: |
+          echo "🔍 Running pre-flight validation..."
+          
+          # Check if test runner script exists
+          if [ ! -f "ci_pr_test_runner.py" ]; then
+            echo "❌ ci_pr_test_runner.py not found!"
+            exit 1
+          fi
+          
+          # Validate Python syntax of the runner
+          python -m py_compile ci_pr_test_runner.py
+          echo "✅ Test runner syntax validated"
+          
+          # Check Groq API key
+          if [ -z "${{ secrets.GROQ_API_KEY }}" ]; then
+            echo "❌ GROQ_API_KEY secret not configured!"
+            exit 1
+          fi
+          echo "✅ GROQ_API_KEY is configured"
+          
+          # Validate changed Python files syntax
+          if [ "${{ env.PYTHON_FILES_COUNT }}" -gt "0" ]; then
+            echo "🔍 Validating syntax of changed Python files..."
+            for file in ${{ env.PYTHON_CHANGED_FILES }}; do
+              if [ -f "$file" ]; then
+                echo "  Checking: $file"
+                python -m py_compile "$file" || echo "  ⚠️ Syntax issues in $file"
+              fi
+            done
+          fi
+
+      - name: 🚀 Run Enhanced AI-powered Test Generator
+        id: run-tests
         env:
           CHANGED_FILES: ${{ env.CHANGED_FILES }}
-          # Pass the Groq API Key from GitHub Secrets
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: python ci_pr_test_runner.py
+          PYTHONPATH: ${{ github.workspace }}
+          PYTHON_FILES_COUNT: ${{ env.PYTHON_FILES_COUNT }}
+        run: |
+          echo "🚀 Starting Enhanced Test Generation..."
+          echo "📊 Files to analyze: ${{ env.PYTHON_FILES_COUNT }} Python files"
+          
+          # Create necessary directories
+          mkdir -p reports tests_pr htmlcov
+          
+          # Run the enhanced test generator with timeout
+          timeout 25m python ci_pr_test_runner.py || {
+            exit_code=$?
+            echo "❌ Test runner exited with code: $exit_code"
+            
+            # Create a failure report if none exists
+            if [ ! -f "reports/test_automation_report_"*".json" ]; then
+              cat > "reports/failure_report.json" << EOF
+          {
+            "title": "🚀 Python Project Test Automation Report",
+            "generated": "$(date '+%Y-%m-%d %H:%M:%S')",
+            "status": "FAILED",
+            "execution_time_seconds": 0,
+            "test_results": {
+              "status": "failure",
+              "output": "Test runner failed or timed out"
+            },
+            "changed_files": $(echo '${{ env.CHANGED_FILES }}' | jq -R 'split(" ")'),
+            "coverage_metrics": {},
+            "execution_logs": ["Test execution failed"]
+          }
+          EOF
+            fi
+            
+            if [ $exit_code -eq 124 ]; then
+              echo "⏰ Test generation timed out after 25 minutes"
+            fi
+            exit $exit_code
+          }
 
-      - name: 📊 Upload Test Reports as Artifacts
+      - name: 📊 Process Test Results
+        if: always()  # Run even if previous step fails
+        run: |
+          echo "📊 Processing test results..."
+          
+          # Check if reports were generated
+          if [ -d "reports" ] && [ "$(ls -A reports)" ]; then
+            echo "✅ Reports found:"
+            ls -la reports/
+          else
+            echo "⚠️ No reports generated"
+          fi
+          
+          # Check if coverage reports exist
+          if [ -d "htmlcov" ] && [ "$(ls -A htmlcov)" ]; then
+            echo "✅ HTML coverage reports found"
+            ls -la htmlcov/
+          else
+            echo "⚠️ No HTML coverage reports found"
+          fi
+          
+          # Check if test files were generated
+          if [ -d "tests_pr" ] && [ "$(ls -A tests_pr)" ]; then
+            echo "✅ Generated test files found:"
+            ls -la tests_pr/
+          else
+            echo "⚠️ No test files generated"
+          fi
+
+      - name: 🧹 Cleanup and Prepare Artifacts
+        if: always()
+        run: |
+          echo "🧹 Preparing artifacts..."
+          
+          # Clean up any temporary files
+          find . -name "*.pyc" -delete
+          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+          
+          # Ensure directories exist for artifacts
+          mkdir -p reports tests_pr htmlcov
+          
+          # Create a summary file
+          cat > "reports/run_summary.txt" << EOF
+          Test Automation Run Summary
+          ==========================
+          Date: $(date)
+          Python Version: ${{ env.PYTHON_VERSION }}
+          Total Changed Files: ${{ env.TOTAL_CHANGED_FILES }}
+          Python Files Analyzed: ${{ env.PYTHON_FILES_COUNT }}
+          Workflow Status: ${{ job.status }}
+          EOF
+
+      - name: 📊 Upload Test Reports and Artifacts
         uses: actions/upload-artifact@v4
-        if: always()  # Upload even if tests fail
+        if: always()
         with:
-          name: test-automation-reports
+          name: enhanced-test-automation-reports-${{ github.run_number }}
           path: |
             reports/
             htmlcov/
             tests_pr/
+            .coverage
           retention-days: 30
+          compression-level: 6
 
-      - name: 📝 Commit and Push Reports
-        if: always()  # Run even if tests fail
+      - name: 📝 Commit and Push Reports to PR Branch
+        if: always()
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          echo "📝 Committing reports to PR branch..."
           
-          # Create reports directory if it doesn't exist
-          mkdir -p reports
+          # Configure git
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions Bot"
+          
+          # Create .gitignore entries if they don't exist
+          if [ ! -f .gitignore ]; then
+            touch .gitignore
+          fi
+          
+          # Ensure reports directories are not ignored
+          grep -q "^reports/" .gitignore && sed -i '/^reports\//d' .gitignore || true
+          grep -q "^htmlcov/" .gitignore && sed -i '/^htmlcov\//d' .gitignore || true
+          grep -q "^tests_pr/" .gitignore && sed -i '/^tests_pr\//d' .gitignore || true
           
           # Add reports to git
           git add reports/ || true
-          git add htmlcov/ || true
+          git add htmlcov/ || true  
           git add tests_pr/ || true
           
-          # Check if there are any changes to commit
+          # Check if there are changes to commit
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "📭 No new reports to commit"
           else
-            git commit -m "📊 Add automated test reports [skip ci]"
-            # Push to the PR branch (head_ref)
-            git push origin HEAD:${{ github.head_ref }}
+            echo "📤 Committing reports..."
+            git commit -m "🤖 Add enhanced automated test reports and coverage [skip ci]
+
+          - Generated by: Enhanced AI Test Automation
+          - Run ID: ${{ github.run_id }}
+          - Python files analyzed: ${{ env.PYTHON_FILES_COUNT }}
+          - Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            
+            # Push to the PR branch
+            git push origin HEAD:${{ github.head_ref }} || {
+              echo "⚠️ Failed to push reports, but continuing..."
+            }
           fi
 
-      - name: 📋 Comment PR with Report Summary
+      - name: 📋 Generate and Post PR Comment
         if: always()
         uses: actions/github-script@v7
         with:
@@ -88,62 +286,146 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             
+            console.log('📋 Generating PR comment...');
+            
+            let reportData = null;
+            let reportExists = false;
+            
             // Try to read the latest JSON report
             try {
               const reportsDir = 'reports';
               if (fs.existsSync(reportsDir)) {
                 const files = fs.readdirSync(reportsDir);
-                const jsonFiles = files.filter(f => f.endsWith('.json'));
+                const jsonFiles = files.filter(f => f.endsWith('.json') && !f.includes('failure'));
                 
                 if (jsonFiles.length > 0) {
                   const latestReport = jsonFiles.sort().pop();
                   const reportPath = path.join(reportsDir, latestReport);
-                  const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-                  
-                  const coveragePercent = reportData.coverage_metrics?.total_coverage || 'N/A';
-                  const status = reportData.status;
-                  const executionTime = reportData.execution_time_seconds;
-                  const modelName = reportData.model_name;
-                  
-                  const body = `## 🚀 Automated Test Report
-            
-            **Status:** ${status === 'SUCCESS' ? '✅' : '❌'} ${status}
-            **Model Used:** ${modelName}
-            **Execution Time:** ${executionTime}s
-            **Coverage:** ${coveragePercent}%
-            
-            ### 📁 Changed Files
-            ${reportData.changed_files.map(f => `- \`${f}\``).join('\n')}
-            
-            ### 🔍 Functions Analyzed
-            ${reportData.analyzed_functions.map(f => `- \`${f.name}\` in \`${f.file_path}\``).join('\n')}
-            
-            ### 📊 Reports Generated
-            - 📄 [JSON Report](./reports/${latestReport})
-            - 📄 [XML Report](./reports/${latestReport.replace('.json', '.xml')})
-            - 📄 [Text Report](./reports/${latestReport.replace('.json', '.txt')})
-            - 📄 [HTML Coverage Report](./htmlcov/index.html)
-            
-            > Reports are automatically generated using AI-powered test automation with ${modelName}`;
-                  
-                  github.rest.issues.createComment({
-                    issue_number: context.issue.number,
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    body: body
-                  });
+                  reportData = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+                  reportExists = true;
+                  console.log(`📄 Found report: ${latestReport}`);
                 }
               }
             } catch (error) {
-              console.log('Could not read report file:', error.message);
+              console.log('⚠️ Could not read report file:', error.message);
+            }
+            
+            // Generate comment based on available data
+            let body;
+            
+            if (reportExists && reportData) {
+              const coveragePercent = reportData.coverage_metrics?.total_coverage || 'N/A';
+              const status = reportData.status;
+              const executionTime = parseFloat(reportData.execution_time_seconds).toFixed(1);
+              const modelName = reportData.model_name || 'AI Model';
+              const syntaxValidation = reportData.syntax_validation || {};
               
-              github.rest.issues.createComment({
+              const statusEmoji = status === 'SUCCESS' ? '✅' : status === 'FAILED' ? '❌' : '⚠️';
+              const coverageEmoji = coveragePercent !== 'N/A' && parseFloat(coveragePercent) >= 80 ? '🟢' : 
+                                   coveragePercent !== 'N/A' && parseFloat(coveragePercent) >= 60 ? '🟡' : '🔴';
+              
+              body = `## 🚀 Enhanced Automated Test Report
+              
+            ${statusEmoji} **Overall Status:** ${status}  
+            🤖 **AI Model:** ${modelName}  
+            ⏱️ **Execution Time:** ${executionTime}s  
+            ${coverageEmoji} **Code Coverage:** ${coveragePercent}%  
+            
+            ### 📁 Changed Files (${reportData.changed_files?.length || 0})
+            ${reportData.changed_files?.length ? 
+              reportData.changed_files.map(f => `- \`${f}\``).join('\n') : 
+              '- No files detected'}
+            
+            ### 🔍 Functions Analyzed (${reportData.analyzed_functions?.length || 0})
+            ${reportData.analyzed_functions?.length ? 
+              reportData.analyzed_functions.slice(0, 10).map(f => 
+                `- \`${f.name}\` in \`${f.file_path}\` ${f.is_method ? '(method)' : '(function)'} [Complexity: ${f.complexity_score}/10]`
+              ).join('\n') + (reportData.analyzed_functions.length > 10 ? `\n- ... and ${reportData.analyzed_functions.length - 10} more` : '') :
+              '- No functions detected'}
+            
+            ### 🔧 Syntax Validation
+            ${Object.keys(syntaxValidation).length ? 
+              Object.entries(syntaxValidation).map(([file, valid]) => 
+                `- \`${file}\`: ${valid ? '✅ Valid' : '❌ Issues'}`
+              ).join('\n') :
+              '- No validation data'}
+            
+            ### 📊 Generated Reports
+            - 📄 **JSON Report**: \`reports/test_automation_report_*.json\`
+            - 📄 **XML Report**: \`reports/test_automation_report_*.xml\`  
+            - 📄 **Text Report**: \`reports/test_automation_report_*.txt\`
+            - 📄 **HTML Coverage**: \`htmlcov/index.html\`
+            - 🧪 **Generated Tests**: \`tests_pr/pr_generated_tests.py\`
+            
+            ### 📈 Coverage Details
+            ${reportData.coverage_metrics?.total_statements ? 
+              `- **Total Statements**: ${reportData.coverage_metrics.total_statements}
+            - **Missing Coverage**: ${reportData.coverage_metrics.missing_statements || 0}` :
+              '- Coverage details not available'}
+            
+            ---
+            <sub>🤖 This report was automatically generated using Enhanced AI-powered test automation with ${modelName} | Run ID: ${{ github.run_id }}</sub>`;
+            } else {
+              // Fallback comment when no report is available
+              const pythonFiles = parseInt('${{ env.PYTHON_FILES_COUNT }}') || 0;
+              
+              body = `## 🚀 Enhanced Automated Test Report
+              
+            ⚠️ **Status:** Test automation completed with limited results  
+            🐍 **Python Files Changed:** ${pythonFiles}  
+            ⏱️ **Execution Time:** ${{ env.TOTAL_CHANGED_FILES }} total files analyzed  
+            
+            ### 📁 Analysis Summary
+            ${pythonFiles > 0 ? 
+              `- ${pythonFiles} Python files were detected and analyzed
+            - Check the [workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed information` :
+              `- No Python files detected in this PR
+            - Only non-Python files were changed`}
+            
+            ### 📊 Available Artifacts
+            - 📄 Check the **Actions** tab for downloadable reports
+            - 🔍 View the **workflow logs** for execution details
+            
+            ---
+            <sub>🤖 Enhanced AI-powered test automation | Run ID: ${{ github.run_id }}</sub>`;
+            }
+            
+            // Post the comment
+            try {
+              await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `## 🚀 Automated Test Report
-                
-                Test automation completed, but report summary could not be generated.
-                Check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
+                body: body
               });
+              console.log('✅ PR comment posted successfully');
+            } catch (error) {
+              console.error('❌ Failed to post PR comment:', error.message);
             }
+
+      - name: 📈 Set Workflow Status
+        if: always()
+        run: |
+          echo "📈 Setting final workflow status..."
+          
+          # Determine if we should fail the workflow based on test results
+          if [ -f "reports/test_automation_report_"*".json" ]; then
+            status=$(cat reports/test_automation_report_*.json | jq -r '.status // "UNKNOWN"' | head -1)
+            echo "Test automation status: $status"
+            
+            if [ "$status" = "FAILED" ]; then
+              echo "❌ Test automation reported FAILED status"
+              exit 1
+            else
+              echo "✅ Test automation completed successfully"
+            fi
+          else
+            echo "⚠️ No test reports found - treating as warning"
+            # Don't fail the workflow if no Python files were changed
+            if [ "${{ env.PYTHON_FILES_COUNT }}" -eq "0" ]; then
+              echo "✅ No Python files to test - workflow successful"
+            else
+              echo "❌ Expected test reports but none found"
+              exit 1
+            fi
+          fi
