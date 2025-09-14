@@ -1,0 +1,76 @@
+<test_automation_report><header><title>🚀 Python Project Test Automation Report</title><generated>2025-09-14 06:20:32</generated><model_name>llama-3.3-70b-versatile</model_name><execution_time_seconds>1.93921</execution_time_seconds><status>FAILED</status></header><syntax_validation><validation test="main.py">True</validation><validation test="tests_pr/pr_generated_tests.py">True</validation><validation test="generated_test_file">True</validation></syntax_validation><analyzed_functions><count>7</count><function><name>add_numbers</name><file_path>main.py</file_path><line_start>4</line_start><line_end>5</line_end><is_method>False</is_method><complexity_score>1</complexity_score><code_snippet>def add_numbers(a, b):
+    return a + b</code_snippet></function><function><name>is_prime</name><file_path>main.py</file_path><line_start>7</line_start><line_end>14</line_end><is_method>False</is_method><complexity_score>4</complexity_score><code_snippet>def is_prime(n):
+    
+    if n &lt;= 1:
+        return False
+    for i in range(2, int(n**0.5) + 1):
+        if n % i == 0:
+            return False
+    return True</code_snippet></function><function><name>setUp</name><file_path>tests_pr/pr_generated_tests.py</file_path><line_start>9</line_start><line_end>10</line_end><is_method>True</is_method><complexity_score>1</complexity_score><class_name>TestGeneratedCode</class_name><code_snippet>    def setUp(self):
+        pass</code_snippet></function><function><name>test_sum_three_numbers_normal_cases</name><file_path>tests_pr/pr_generated_tests.py</file_path><line_start>12</line_start><line_end>16</line_end><is_method>True</is_method><complexity_score>1</complexity_score><class_name>TestGeneratedCode</class_name><code_snippet>    def test_sum_three_numbers_normal_cases(self):
+        self.assertEqual(sum_three_numbers(1, 2, 3), 6)
+        self.assertEqual(sum_three_numbers(1.5, 2.5, 3.5), 7.5)
+        self.assertEqual(sum_...</code_snippet></function><function><name>test_sum_three_numbers_edge_cases</name><file_path>tests_pr/pr_generated_tests.py</file_path><line_start>18</line_start><line_end>22</line_end><is_method>True</is_method><complexity_score>1</complexity_score><class_name>TestGeneratedCode</class_name><code_snippet>    def test_sum_three_numbers_edge_cases(self):
+        self.assertEqual(sum_three_numbers(0, 0, 0), 0)
+        self.assertEqual(sum_three_numbers(1, 0, 0), 1)
+        self.assertEqual(sum_three_numb...</code_snippet></function><function><name>test_sum_three_numbers_error_cases</name><file_path>tests_pr/pr_generated_tests.py</file_path><line_start>24</line_start><line_end>30</line_end><is_method>True</is_method><complexity_score>1</complexity_score><class_name>TestGeneratedCode</class_name><code_snippet>    def test_sum_three_numbers_error_cases(self):
+        with self.assertRaises(TypeError):
+            sum_three_numbers('a', 2, 3)
+        with self.assertRaises(TypeError):
+            sum_three_n...</code_snippet></function><function><name>test_sum_three_numbers_type_validation</name><file_path>tests_pr/pr_generated_tests.py</file_path><line_start>32</line_start><line_end>34</line_end><is_method>True</is_method><complexity_score>1</complexity_score><class_name>TestGeneratedCode</class_name><code_snippet>    def test_sum_three_numbers_type_validation(self):
+        self.assertIsInstance(sum_three_numbers(1, 2, 3), (int, float))
+        self.assertIsInstance(sum_three_numbers(1.5, 2.5, 3.5), (int, floa...</code_snippet></function></analyzed_functions><test_results><status>failure</status><output>test_add_numbers_edge_cases (__main__.TestGeneratedCode.test_add_numbers_edge_cases) ... ok
+test_add_numbers_error_cases (__main__.TestGeneratedCode.test_add_numbers_error_cases) ... ok
+test_add_numbers_normal_cases (__main__.TestGeneratedCode.test_add_numbers_normal_cases) ... ok
+test_is_prime_edge_cases (__main__.TestGeneratedCode.test_is_prime_edge_cases) ... ok
+test_is_prime_error_cases (__main__.TestGeneratedCode.test_is_prime_error_cases) ... FAIL
+test_is_prime_normal_cases (__main__.TestGeneratedCode.test_is_prime_normal_cases) ... ok
+test_sum_three_numbers_edge_cases (__main__.TestGeneratedCode.test_sum_three_numbers_edge_cases) ... ok
+test_sum_three_numbers_error_cases (__main__.TestGeneratedCode.test_sum_three_numbers_error_cases) ... ok
+test_sum_three_numbers_normal_cases (__main__.TestGeneratedCode.test_sum_three_numbers_normal_cases) ... ok
+test_sum_three_numbers_type_validation (__main__.TestGeneratedCode.test_sum_three_numbers_type_validation) ... ok
+
+======================================================================
+FAIL: test_is_prime_error_cases (__main__.TestGeneratedCode.test_is_prime_error_cases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 48, in test_is_prime_error_cases
+    with self.assertRaises(TypeError):
+AssertionError: TypeError not raised
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.001s
+
+FAILED (failures=1)
+</output><coverage_report>Name                                                                      Stmts   Miss  Cover
+---------------------------------------------------------------------------------------------
+/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/unittest/main.py     162     59    64%
+main.py                                                                       9      0   100%
+tests_pr/pr_generated_tests.py                                               63      0   100%
+---------------------------------------------------------------------------------------------
+TOTAL                                                                       234     59    75%
+</coverage_report></test_results><test_cases><test_case name="test_add_numbers_edge_cases" status="PASS"><test_method>test_add_numbers_edge_cases</test_method></test_case><test_case name="test_add_numbers_error_cases" status="PASS"><test_method>test_add_numbers_error_cases</test_method></test_case><test_case name="test_add_numbers_normal_cases" status="PASS"><test_method>test_add_numbers_normal_cases</test_method></test_case><test_case name="test_is_prime_edge_cases" status="PASS"><test_method>test_is_prime_edge_cases</test_method></test_case><test_case name="test_is_prime_error_cases" status="FAIL"><test_method>test_is_prime_error_cases</test_method></test_case><test_case name="test_is_prime_normal_cases" status="PASS"><test_method>test_is_prime_normal_cases</test_method></test_case><test_case name="test_sum_three_numbers_edge_cases" status="PASS"><test_method>test_sum_three_numbers_edge_cases</test_method></test_case><test_case name="test_sum_three_numbers_error_cases" status="PASS"><test_method>test_sum_three_numbers_error_cases</test_method></test_case><test_case name="test_sum_three_numbers_normal_cases" status="PASS"><test_method>test_sum_three_numbers_normal_cases</test_method></test_case><test_case name="test_sum_three_numbers_type_validation" status="PASS"><test_method>test_sum_three_numbers_type_validation</test_method></test_case></test_cases><coverage_metrics><metric name="total_coverage">75</metric><metric name="total_statements">234</metric><metric name="missing_statements">59</metric></coverage_metrics><execution_logs><count>25</count><log>[2025-09-14 06:20:30] [INFO] 🚀 Starting Enhanced Python Project Test Automation</log><log>[2025-09-14 06:20:30] [INFO] 📁 Detected 6 changed files: main.py, reports/run_summary.txt, reports/test_automation_report_2025-09-14_06-16-05.json, reports/test_automation_report_2025-09-14_06-16-05.txt, reports/test_automation_report_2025-09-14_06-16-05.xml, tests_pr/pr_generated_tests.py</log><log>[2025-09-14 06:20:30] [INFO] 🔍 Analyzing changed file: main.py</log><log>[2025-09-14 06:20:30] [INFO] ✅ Found 2 functions/methods in main.py</log><log>[2025-09-14 06:20:30] [INFO] 🔍 Analyzing changed file: tests_pr/pr_generated_tests.py</log><log>[2025-09-14 06:20:30] [INFO] ✅ Found 5 functions/methods in tests_pr/pr_generated_tests.py</log><log>[2025-09-14 06:20:30] [INFO] 📊 Analysis Summary:</log><log>[2025-09-14 06:20:30] [INFO]    Total Functions/Methods: 7</log><log>[2025-09-14 06:20:30] [INFO]    Functions: 2, Methods: 5</log><log>[2025-09-14 06:20:30] [INFO]    Average Complexity: 1.4/10</log><log>[2025-09-14 06:20:30] [INFO] 🧠 Generating comprehensive test cases using llama-3.3-70b-versatile...</log><log>[2025-09-14 06:20:30] [INFO] 🤖 Generating test code (attempt 1/3)...</log><log>[2025-09-14 06:20:32] [SUCCESS] ✅ Generated syntactically valid test code</log><log>[2025-09-14 06:20:32] [INFO] ✔️ Formatted: pr_generated_tests.py</log><log>[2025-09-14 06:20:32] [SUCCESS] ✅ Generated and saved syntactically valid tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py</log><log>[2025-09-14 06:20:32] [INFO] 🏃 Executing generated tests with comprehensive coverage analysis...</log><log>[2025-09-14 06:20:32] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py</log><log>[2025-09-14 06:20:32] [ERROR] ❌ Tests failed.</log><log>[2025-09-14 06:20:32] [ERROR] --- Test Output ---</log><log>[2025-09-14 06:20:32] [ERROR] </log><log>[2025-09-14 06:20:32] [ERROR] test_add_numbers_edge_cases (__main__.TestGeneratedCode.test_add_numbers_edge_cases) ... ok
+test_add_numbers_error_cases (__main__.TestGeneratedCode.test_add_numbers_error_cases) ... ok
+test_add_numbers_normal_cases (__main__.TestGeneratedCode.test_add_numbers_normal_cases) ... ok
+test_is_prime_edge_cases (__main__.TestGeneratedCode.test_is_prime_edge_cases) ... ok
+test_is_prime_error_cases (__main__.TestGeneratedCode.test_is_prime_error_cases) ... FAIL
+test_is_prime_normal_cases (__main__.TestGeneratedCode.test_is_prime_normal_cases) ... ok
+test_sum_three_numbers_edge_cases (__main__.TestGeneratedCode.test_sum_three_numbers_edge_cases) ... ok
+test_sum_three_numbers_error_cases (__main__.TestGeneratedCode.test_sum_three_numbers_error_cases) ... ok
+test_sum_three_numbers_normal_cases (__main__.TestGeneratedCode.test_sum_three_numbers_normal_cases) ... ok
+test_sum_three_numbers_type_validation (__main__.TestGeneratedCode.test_sum_three_numbers_type_validation) ... ok
+
+======================================================================
+FAIL: test_is_prime_error_cases (__main__.TestGeneratedCode.test_is_prime_error_cases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 48, in test_is_prime_error_cases
+    with self.assertRaises(TypeError):
+AssertionError: TypeError not raised
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.001s
+
+FAILED (failures=1)
+</log><log>[2025-09-14 06:20:32] [ERROR] -------------------</log><log>[2025-09-14 06:20:32] [INFO] 
+🎯 Code Coverage: 75%</log><log>[2025-09-14 06:20:32] [INFO] 🟡 Good coverage, consider adding edge case tests</log><log>[2025-09-14 06:20:32] [INFO] 📄 JSON report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-14_06-20-32.json</log></execution_logs></test_automation_report>
