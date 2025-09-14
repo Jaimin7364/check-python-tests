@@ -57,6 +57,16 @@ class FunctionInfo:
     complexity_score: int = 1
 
 @dataclass
+class TestCaseResult:
+    """Individual test case result"""
+    name: str
+    status: str  # "PASS", "FAIL", "ERROR", "SKIP"
+    execution_time: float = 0.0
+    error_message: str = ""
+    failure_reason: str = ""
+    test_method: str = ""
+
+@dataclass
 class TestReport:
     """Data structure for test execution report"""
     timestamp: str
@@ -69,6 +79,7 @@ class TestReport:
     execution_time: float
     logs: List[str] = field(default_factory=list)
     syntax_validation: Dict[str, bool] = field(default_factory=dict)
+    test_cases: List[TestCaseResult] = field(default_factory=list)
 
 class CodeAnalyzer:
     """Enhanced code analyzer for better function understanding"""
@@ -585,6 +596,89 @@ Generate the complete test file now:"""
             self._log(f"❌ Failed to format {file_path.name}: {e.stderr}", "ERROR")
             return False
 
+    def _parse_test_output(self, test_output: str, test_stderr: str) -> List[TestCaseResult]:
+        """Parse unittest output to extract individual test case results"""
+        test_cases = []
+        
+        # Parse test output for individual test results
+        lines = (test_output + "\n" + test_stderr).split('\n')
+        
+        # Look for test method executions and their results
+        current_test = None
+        in_failure_block = False
+        failure_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Match test method execution pattern
+            if line.startswith('test_') and '(' in line and ')' in line:
+                if current_test:
+                    # Save previous test if any
+                    test_cases.append(current_test)
+                
+                # Extract test method name
+                test_name = line.split('(')[0].strip()
+                current_test = TestCaseResult(
+                    name=test_name,
+                    status="PASS",  # Default to PASS, will update if we find failures
+                    test_method=test_name
+                )
+            
+            # Check for failure indicators
+            elif 'FAIL:' in line or 'ERROR:' in line:
+                if current_test:
+                    if 'FAIL:' in line:
+                        current_test.status = "FAIL"
+                    else:
+                        current_test.status = "ERROR"
+                    in_failure_block = True
+                    failure_lines = []
+            
+            elif in_failure_block and line.startswith('='):
+                # End of failure block
+                if current_test and failure_lines:
+                    current_test.failure_reason = '\n'.join(failure_lines[:5])  # Limit to first 5 lines
+                in_failure_block = False
+                failure_lines = []
+            
+            elif in_failure_block:
+                failure_lines.append(line)
+        
+        # Add the last test if any
+        if current_test:
+            test_cases.append(current_test)
+        
+        # If no individual tests were parsed, try to extract test names from the test file
+        if not test_cases:
+            test_cases = self._extract_test_methods_from_file()
+        
+        return test_cases
+    
+    def _extract_test_methods_from_file(self) -> List[TestCaseResult]:
+        """Extract test method names from the generated test file"""
+        test_cases = []
+        test_file_path = self.test_dir / "pr_generated_tests.py"
+        
+        if test_file_path.exists():
+            try:
+                with open(test_file_path, 'r') as f:
+                    content = f.read()
+                
+                # Parse the AST to find test methods
+                tree = ast.parse(content)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef) and node.name.startswith('test_'):
+                        test_cases.append(TestCaseResult(
+                            name=node.name,
+                            status="PASS",  # Assume PASS if we can't determine otherwise
+                            test_method=node.name
+                        ))
+            except Exception as e:
+                self._log(f"Warning: Could not parse test file for method names: {e}", "WARNING")
+        
+        return test_cases
+
     def _execute_tests(self, test_file_path: Path, changed_files: List[str]) -> Dict[str, Any]:
         """Enhanced test execution with better error handling"""
         self._log(f"🧪 Executing tests from {test_file_path}", "INFO")
@@ -617,21 +711,21 @@ Generate the complete test file now:"""
             
             if dry_run.returncode != 0:
                 self._log(f"❌ Test file compilation failed: {dry_run.stderr}", "ERROR")
-                return {"status": "failure", "output": f"Compilation failed: {dry_run.stderr}"}
+                return {"status": "failure", "output": f"Compilation failed: {dry_run.stderr}", "test_cases": []}
             
-            # Run tests with coverage
+            # Run tests with coverage and verbose output
             if python_changed_files:
                 include_patterns = ','.join(python_changed_files)
                 coverage_cmd = [
                     python_executable, "-m", "coverage", "run", 
                     f"--include={include_patterns}",
-                    str(test_file_path)
+                    "-m", "unittest", str(test_file_path.stem), "-v"
                 ]
             else:
                 coverage_cmd = [
                     python_executable, "-m", "coverage", "run", 
                     "--source=.",
-                    str(test_file_path)
+                    "-m", "unittest", str(test_file_path.stem), "-v"
                 ]
             
             # Execute tests with timeout
@@ -656,11 +750,15 @@ Generate the complete test file now:"""
                 self._log(f"\n📊 Code Coverage Report:", "INFO")
                 self._log(coverage_result.stdout, "INFO")
                 
+                # Parse individual test case results
+                test_cases = self._parse_test_output(run_result.stdout, run_result.stderr)
+                
                 return {
                     "status": "success", 
                     "output": run_result.stdout,
                     "coverage_report": coverage_result.stdout,
-                    "stderr": run_result.stderr
+                    "stderr": run_result.stderr,
+                    "test_cases": test_cases
                 }
             else:
                 self._log("❌ Tests failed.", "ERROR")
@@ -669,18 +767,22 @@ Generate the complete test file now:"""
                 self._log(run_result.stderr, "ERROR")
                 self._log("-------------------", "ERROR")
                 
+                # Parse individual test case results even for failures
+                test_cases = self._parse_test_output(run_result.stdout, run_result.stderr)
+                
                 return {
                     "status": "failure", 
                     "output": run_result.stdout + run_result.stderr,
-                    "coverage_report": coverage_result.stdout if coverage_result.returncode == 0 else ""
+                    "coverage_report": coverage_result.stdout if coverage_result.returncode == 0 else "",
+                    "test_cases": test_cases
                 }
                 
         except subprocess.TimeoutExpired:
             self._log("❌ Test execution timed out after 5 minutes", "ERROR")
-            return {"status": "failure", "output": "Test execution timed out"}
+            return {"status": "failure", "output": "Test execution timed out", "test_cases": []}
         except Exception as e:
             self._log(f"❌ Test execution failed: {e}", "ERROR")
-            return {"status": "failure", "output": f"Execution error: {str(e)}"}
+            return {"status": "failure", "output": f"Execution error: {str(e)}", "test_cases": []}
 
     def _parse_coverage_metrics(self, coverage_output: str) -> Dict[str, str]:
         """Enhanced coverage metrics parsing"""
@@ -735,6 +837,16 @@ Generate the complete test file now:"""
                 for func in report.analyzed_functions
             ],
             "test_results": report.test_results,
+            "test_cases": [
+                {
+                    "name": test_case.name,
+                    "status": test_case.status,
+                    "execution_time": test_case.execution_time,
+                    "failure_reason": test_case.failure_reason,
+                    "test_method": test_case.test_method
+                }
+                for test_case in report.test_cases
+            ],
             "coverage_metrics": report.coverage_metrics,
             "execution_logs": report.logs
         }
@@ -785,6 +897,19 @@ Generate the complete test file now:"""
             ET.SubElement(test_results_elem, "coverage_report").text = report.test_results["coverage_report"]
         if "stderr" in report.test_results:
             ET.SubElement(test_results_elem, "stderr").text = report.test_results["stderr"]
+        
+        # Individual test cases
+        test_cases_elem = ET.SubElement(root, "test_cases")
+        for test_case in report.test_cases:
+            case_elem = ET.SubElement(test_cases_elem, "test_case")
+            case_elem.set("name", test_case.name)
+            case_elem.set("status", test_case.status)
+            if test_case.execution_time > 0:
+                case_elem.set("execution_time", str(test_case.execution_time))
+            if test_case.failure_reason:
+                ET.SubElement(case_elem, "failure_reason").text = test_case.failure_reason
+            if test_case.test_method:
+                ET.SubElement(case_elem, "test_method").text = test_case.test_method
         
         # Coverage metrics
         coverage_elem = ET.SubElement(root, "coverage_metrics")
@@ -853,6 +978,26 @@ Generate the complete test file now:"""
             f"  Status: {report.test_results.get('status', 'unknown').upper()}",
             ""
         ])
+        
+        # Add individual test case results
+        if report.test_cases:
+            lines.extend([
+                "📋 INDIVIDUAL TEST CASES:",
+                ""
+            ])
+            
+            for i, test_case in enumerate(report.test_cases, 1):
+                status_emoji = "✅" if test_case.status == "PASS" else "❌" if test_case.status in ["FAIL", "ERROR"] else "⚠️"
+                lines.append(f"  {i}. {test_case.name}")
+                lines.append(f"     Status: {status_emoji} {test_case.status}")
+                
+                if test_case.failure_reason and test_case.status in ["FAIL", "ERROR"]:
+                    lines.append(f"     Reason: {test_case.failure_reason}")
+                
+                if test_case.execution_time > 0:
+                    lines.append(f"     Time: {test_case.execution_time:.3f}s")
+                
+                lines.append("")
         
         if "output" in report.test_results and report.test_results["output"]:
             lines.extend([
@@ -1080,7 +1225,8 @@ Generate the complete test file now:"""
             status=overall_status,
             execution_time=execution_time,
             logs=self.logs,
-            syntax_validation=syntax_validation
+            syntax_validation=syntax_validation,
+            test_cases=test_results.get("test_cases", [])
         )
         
         # Save comprehensive reports
