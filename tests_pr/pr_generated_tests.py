@@ -19,8 +19,8 @@ class TestGeneratedCode(unittest.TestCase):
         self.assertEqual(sum_three_numbers(-1.5, -2.5, -3.5), -7.5)
 
     def test_sum_three_numbers_type_validation(self):
-        self.assertIsInstance(sum_three_numbers(1, 2, 3), (int, float))
-        self.assertIsInstance(sum_three_numbers(1.5, 2.5, 3.5), (int, float))
+        self.assertIsInstance(sum_three_numbers(1, 2, 3), int)
+        self.assertIsInstance(sum_three_numbers(1.5, 2.5, 3.5), float)
 
     def test_sum_three_numbers_error_cases(self):
         with self.assertRaises(TypeError):
