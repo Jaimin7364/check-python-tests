@@ -1,0 +1,426 @@
+{
+  "title": "🚀 Python Project Test Automation Report",
+  "generated": "2025-09-14 06:24:10",
+  "model_name": "llama-3.3-70b-versatile",
+  "execution_time_seconds": 2.514954,
+  "status": "FAILED",
+  "changed_files": [
+    "main.py",
+    "reports/run_summary.txt",
+    "reports/test_automation_report_2025-09-14_06-20-32.json",
+    "reports/test_automation_report_2025-09-14_06-20-32.txt",
+    "reports/test_automation_report_2025-09-14_06-20-32.xml",
+    "tests_pr/pr_generated_tests.py"
+  ],
+  "syntax_validation": {
+    "main.py": true,
+    "tests_pr/pr_generated_tests.py": true,
+    "generated_test_file": true
+  },
+  "analyzed_functions": [
+    {
+      "name": "add_numbers",
+      "file_path": "main.py",
+      "line_start": 4,
+      "line_end": 5,
+      "is_method": false,
+      "class_name": null,
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "def add_numbers(a, b):\n    return a + b"
+    },
+    {
+      "name": "multiply_numbers",
+      "file_path": "main.py",
+      "line_start": 7,
+      "line_end": 8,
+      "is_method": false,
+      "class_name": null,
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "def multiply_numbers(a, b):\n    return a * b"
+    },
+    {
+      "name": "setUp",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 13,
+      "line_end": 14,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def setUp(self):\n        pass"
+    },
+    {
+      "name": "test_add_numbers_normal_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 16,
+      "line_end": 20,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_add_numbers_normal_cases(self):\n        self.assertEqual(add_numbers(1, 2), 3)\n        self.assertEqual(add_numbers(1.5, 2.5), 4.0)\n        self.assertEqual(add_numbers(-1, -2), -3)\n     ..."
+    },
+    {
+      "name": "test_add_numbers_edge_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 22,
+      "line_end": 25,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_add_numbers_edge_cases(self):\n        self.assertEqual(add_numbers(0, 0), 0)\n        self.assertEqual(add_numbers(1, 0), 1)\n        self.assertEqual(add_numbers(0, 1), 1)"
+    },
+    {
+      "name": "test_add_numbers_error_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 27,
+      "line_end": 31,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_add_numbers_error_cases(self):\n        with self.assertRaises(TypeError):\n            add_numbers('a', 2)\n        with self.assertRaises(TypeError):\n            add_numbers(1, 'b')"
+    },
+    {
+      "name": "test_is_prime_normal_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 33,
+      "line_end": 37,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_is_prime_normal_cases(self):\n        self.assertTrue(is_prime(2))\n        self.assertTrue(is_prime(3))\n        self.assertTrue(is_prime(5))\n        self.assertTrue(is_prime(7))"
+    },
+    {
+      "name": "test_is_prime_edge_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 39,
+      "line_end": 43,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_is_prime_edge_cases(self):\n        self.assertFalse(is_prime(1))\n        self.assertFalse(is_prime(4))\n        self.assertFalse(is_prime(6))\n        self.assertFalse(is_prime(8))"
+    },
+    {
+      "name": "test_is_prime_error_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 45,
+      "line_end": 49,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_is_prime_error_cases(self):\n        with self.assertRaises(TypeError):\n            is_prime('a')\n        with self.assertRaises(TypeError):\n            is_prime(1.5)"
+    },
+    {
+      "name": "test_sum_three_numbers_normal_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 51,
+      "line_end": 55,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_sum_three_numbers_normal_cases(self):\n        self.assertEqual(sum_three_numbers(1, 2, 3), 6)\n        self.assertEqual(sum_three_numbers(1.5, 2.5, 3.5), 7.5)\n        self.assertEqual(sum_..."
+    },
+    {
+      "name": "test_sum_three_numbers_edge_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 57,
+      "line_end": 61,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_sum_three_numbers_edge_cases(self):\n        self.assertEqual(sum_three_numbers(0, 0, 0), 0)\n        self.assertEqual(sum_three_numbers(1, 0, 0), 1)\n        self.assertEqual(sum_three_numb..."
+    },
+    {
+      "name": "test_sum_three_numbers_error_cases",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 63,
+      "line_end": 69,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_sum_three_numbers_error_cases(self):\n        with self.assertRaises(TypeError):\n            sum_three_numbers('a', 2, 3)\n        with self.assertRaises(TypeError):\n            sum_three_n..."
+    },
+    {
+      "name": "test_sum_three_numbers_type_validation",
+      "file_path": "tests_pr/pr_generated_tests.py",
+      "line_start": 71,
+      "line_end": 73,
+      "is_method": true,
+      "class_name": "TestGeneratedCode",
+      "complexity_score": 1,
+      "has_type_hints": false,
+      "has_docstring": false,
+      "code_snippet": "    def test_sum_three_numbers_type_validation(self):\n        self.assertIsInstance(sum_three_numbers(1, 2, 3), (int, float))\n        self.assertIsInstance(sum_three_numbers(1.5, 2.5, 3.5), (int, floa..."
+    }
+  ],
+  "test_results": {
+    "status": "failure",
+    "output": "Traceback (most recent call last):\n  File \"/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py\", line 9, in <module>\n    from main import add_numbers, is_prime, multiply_numbers\nImportError: cannot import name 'is_prime' from 'main' (/home/runner/work/check-python-tests/check-python-tests/main.py)\n",
+    "coverage_report": "Name                                                                      Stmts   Miss  Cover\n---------------------------------------------------------------------------------------------\n/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/unittest/main.py     162    133    18%\nmain.py                                                                       4      2    50%\ntests_pr/pr_generated_tests.py                                               77     68    12%\n---------------------------------------------------------------------------------------------\nTOTAL                                                                       243    203    16%\n",
+    "test_cases": [
+      {
+        "name": "test_add_numbers_normal_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_add_numbers_normal_cases"
+      },
+      {
+        "name": "test_add_numbers_edge_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_add_numbers_edge_cases"
+      },
+      {
+        "name": "test_add_numbers_error_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_add_numbers_error_cases"
+      },
+      {
+        "name": "test_multiply_numbers_normal_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_multiply_numbers_normal_cases"
+      },
+      {
+        "name": "test_multiply_numbers_edge_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_multiply_numbers_edge_cases"
+      },
+      {
+        "name": "test_multiply_numbers_error_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_multiply_numbers_error_cases"
+      },
+      {
+        "name": "test_is_prime_normal_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_is_prime_normal_cases"
+      },
+      {
+        "name": "test_is_prime_edge_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_is_prime_edge_cases"
+      },
+      {
+        "name": "test_is_prime_error_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_is_prime_error_cases"
+      },
+      {
+        "name": "test_sum_three_numbers_normal_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_sum_three_numbers_normal_cases"
+      },
+      {
+        "name": "test_sum_three_numbers_edge_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_sum_three_numbers_edge_cases"
+      },
+      {
+        "name": "test_sum_three_numbers_error_cases",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_sum_three_numbers_error_cases"
+      },
+      {
+        "name": "test_sum_three_numbers_type_validation",
+        "status": "PASS",
+        "execution_time": 0.0,
+        "error_message": "",
+        "failure_reason": "",
+        "test_method": "test_sum_three_numbers_type_validation"
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "name": "test_add_numbers_normal_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_add_numbers_normal_cases"
+    },
+    {
+      "name": "test_add_numbers_edge_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_add_numbers_edge_cases"
+    },
+    {
+      "name": "test_add_numbers_error_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_add_numbers_error_cases"
+    },
+    {
+      "name": "test_multiply_numbers_normal_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_multiply_numbers_normal_cases"
+    },
+    {
+      "name": "test_multiply_numbers_edge_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_multiply_numbers_edge_cases"
+    },
+    {
+      "name": "test_multiply_numbers_error_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_multiply_numbers_error_cases"
+    },
+    {
+      "name": "test_is_prime_normal_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_is_prime_normal_cases"
+    },
+    {
+      "name": "test_is_prime_edge_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_is_prime_edge_cases"
+    },
+    {
+      "name": "test_is_prime_error_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_is_prime_error_cases"
+    },
+    {
+      "name": "test_sum_three_numbers_normal_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_sum_three_numbers_normal_cases"
+    },
+    {
+      "name": "test_sum_three_numbers_edge_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_sum_three_numbers_edge_cases"
+    },
+    {
+      "name": "test_sum_three_numbers_error_cases",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_sum_three_numbers_error_cases"
+    },
+    {
+      "name": "test_sum_three_numbers_type_validation",
+      "status": "PASS",
+      "execution_time": 0.0,
+      "error_message": "",
+      "failure_reason": "",
+      "test_method": "test_sum_three_numbers_type_validation"
+    }
+  ],
+  "coverage_metrics": {
+    "total_coverage": "16",
+    "total_statements": "243",
+    "missing_statements": "203"
+  },
+  "execution_logs": [
+    "[2025-09-14 06:24:07] [INFO] 🚀 Starting Enhanced Python Project Test Automation",
+    "[2025-09-14 06:24:07] [INFO] 📁 Detected 6 changed files: main.py, reports/run_summary.txt, reports/test_automation_report_2025-09-14_06-20-32.json, reports/test_automation_report_2025-09-14_06-20-32.txt, reports/test_automation_report_2025-09-14_06-20-32.xml, tests_pr/pr_generated_tests.py",
+    "[2025-09-14 06:24:07] [INFO] 🔍 Analyzing changed file: main.py",
+    "[2025-09-14 06:24:07] [INFO] ✅ Found 2 functions/methods in main.py",
+    "[2025-09-14 06:24:07] [INFO] 🔍 Analyzing changed file: tests_pr/pr_generated_tests.py",
+    "[2025-09-14 06:24:07] [INFO] ✅ Found 11 functions/methods in tests_pr/pr_generated_tests.py",
+    "[2025-09-14 06:24:07] [INFO] 📊 Analysis Summary:",
+    "[2025-09-14 06:24:07] [INFO]    Total Functions/Methods: 13",
+    "[2025-09-14 06:24:07] [INFO]    Functions: 2, Methods: 11",
+    "[2025-09-14 06:24:07] [INFO]    Average Complexity: 1.0/10",
+    "[2025-09-14 06:24:07] [INFO] 🧠 Generating comprehensive test cases using llama-3.3-70b-versatile...",
+    "[2025-09-14 06:24:07] [INFO] 🤖 Generating test code (attempt 1/3)...",
+    "[2025-09-14 06:24:09] [SUCCESS] ✅ Generated syntactically valid test code",
+    "[2025-09-14 06:24:09] [INFO] ✔️ Formatted: pr_generated_tests.py",
+    "[2025-09-14 06:24:09] [SUCCESS] ✅ Generated and saved syntactically valid tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py",
+    "[2025-09-14 06:24:09] [INFO] 🏃 Executing generated tests with comprehensive coverage analysis...",
+    "[2025-09-14 06:24:09] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py",
+    "[2025-09-14 06:24:10] [ERROR] ❌ Tests failed.",
+    "[2025-09-14 06:24:10] [ERROR] --- Test Output ---",
+    "[2025-09-14 06:24:10] [ERROR] ",
+    "[2025-09-14 06:24:10] [ERROR] Traceback (most recent call last):\n  File \"/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py\", line 9, in <module>\n    from main import add_numbers, is_prime, multiply_numbers\nImportError: cannot import name 'is_prime' from 'main' (/home/runner/work/check-python-tests/check-python-tests/main.py)\n",
+    "[2025-09-14 06:24:10] [ERROR] -------------------",
+    "[2025-09-14 06:24:10] [INFO] \n🎯 Code Coverage: 16%",
+    "[2025-09-14 06:24:10] [WARNING] 🔴 Low coverage, significant testing improvements needed"
+  ]
+}

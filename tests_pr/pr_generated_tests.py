@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 from pathlib import Path
 from utils import sum_three_numbers
-from main import add_numbers, is_prime
+from main import add_numbers, is_prime, multiply_numbers
 
 
 class TestGeneratedCode(unittest.TestCase):
@@ -29,6 +29,23 @@ class TestGeneratedCode(unittest.TestCase):
             add_numbers('a', 2)
         with self.assertRaises(TypeError):
             add_numbers(1, 'b')
+
+    def test_multiply_numbers_normal_cases(self):
+        self.assertEqual(multiply_numbers(1, 2), 2)
+        self.assertEqual(multiply_numbers(1.5, 2.5), 3.75)
+        self.assertEqual(multiply_numbers(-1, -2), 2)
+        self.assertEqual(multiply_numbers(-1.5, -2.5), 3.75)
+
+    def test_multiply_numbers_edge_cases(self):
+        self.assertEqual(multiply_numbers(0, 0), 0)
+        self.assertEqual(multiply_numbers(1, 0), 0)
+        self.assertEqual(multiply_numbers(0, 1), 0)
+
+    def test_multiply_numbers_error_cases(self):
+        with self.assertRaises(TypeError):
+            multiply_numbers('a', 2)
+        with self.assertRaises(TypeError):
+            multiply_numbers(1, 'b')
 
     def test_is_prime_normal_cases(self):
         self.assertTrue(is_prime(2))

@@ -1,0 +1,158 @@
+🚀 Python Project Test Automation Report
+Generated: 2025-09-14 06:24:10
+Model Used: llama-3.3-70b-versatile
+Execution Time: 2.51 seconds
+Status: FAILED
+
+============================================================
+
+📁 CHANGED FILES:
+
+  1. main.py
+  2. reports/run_summary.txt
+  3. reports/test_automation_report_2025-09-14_06-20-32.json
+  4. reports/test_automation_report_2025-09-14_06-20-32.txt
+  5. reports/test_automation_report_2025-09-14_06-20-32.xml
+  6. tests_pr/pr_generated_tests.py
+
+🔍 SYNTAX VALIDATION:
+
+  main.py: ✅ PASS
+  tests_pr/pr_generated_tests.py: ✅ PASS
+  generated_test_file: ✅ PASS
+
+🔍 ANALYZED FUNCTIONS/METHODS (13 total):
+
+  1. Function: add_numbers [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: main.py (lines 4-5)
+
+  2. Function: multiply_numbers [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: main.py (lines 7-8)
+
+  3. Method: setUp (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 13-14)
+
+  4. Method: test_add_numbers_normal_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 16-20)
+
+  5. Method: test_add_numbers_edge_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 22-25)
+
+  6. Method: test_add_numbers_error_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 27-31)
+
+  7. Method: test_is_prime_normal_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 33-37)
+
+  8. Method: test_is_prime_edge_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 39-43)
+
+  9. Method: test_is_prime_error_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 45-49)
+
+  10. Method: test_sum_three_numbers_normal_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 51-55)
+
+  11. Method: test_sum_three_numbers_edge_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 57-61)
+
+  12. Method: test_sum_three_numbers_error_cases (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 63-69)
+
+  13. Method: test_sum_three_numbers_type_validation (Class: TestGeneratedCode) [Complexity: 1/10] [Type Hints: ❌] [Docstring: ❌]
+     File: tests_pr/pr_generated_tests.py (lines 71-73)
+
+🧪 TEST RESULTS:
+  Status: FAILURE
+
+📋 INDIVIDUAL TEST CASES:
+
+  1. test_add_numbers_normal_cases
+     Status: ✅ PASS
+
+  2. test_add_numbers_edge_cases
+     Status: ✅ PASS
+
+  3. test_add_numbers_error_cases
+     Status: ✅ PASS
+
+  4. test_multiply_numbers_normal_cases
+     Status: ✅ PASS
+
+  5. test_multiply_numbers_edge_cases
+     Status: ✅ PASS
+
+  6. test_multiply_numbers_error_cases
+     Status: ✅ PASS
+
+  7. test_is_prime_normal_cases
+     Status: ✅ PASS
+
+  8. test_is_prime_edge_cases
+     Status: ✅ PASS
+
+  9. test_is_prime_error_cases
+     Status: ✅ PASS
+
+  10. test_sum_three_numbers_normal_cases
+     Status: ✅ PASS
+
+  11. test_sum_three_numbers_edge_cases
+     Status: ✅ PASS
+
+  12. test_sum_three_numbers_error_cases
+     Status: ✅ PASS
+
+  13. test_sum_three_numbers_type_validation
+     Status: ✅ PASS
+
+  Test Output:
+  ────────────────────────────────────────
+  Traceback (most recent call last):
+    File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 9, in <module>
+      from main import add_numbers, is_prime, multiply_numbers
+  ImportError: cannot import name 'is_prime' from 'main' (/home/runner/work/check-python-tests/check-python-tests/main.py)
+  
+  ────────────────────────────────────────
+
+📊 COVERAGE METRICS:
+
+  Total Coverage: 16
+  Total Statements: 243
+  Missing Statements: 203
+
+📝 EXECUTION LOGS (Last 25 entries):
+
+  [2025-09-14 06:24:07] [INFO] 📁 Detected 6 changed files: main.py, reports/run_summary.txt, reports/test_automation_report_2025-09-14_06-20-32.json, reports/test_automation_report_2025-09-14_06-20-32.txt, reports/test_automation_report_2025-09-14_06-20-32.xml, tests_pr/pr_generated_tests.py
+  [2025-09-14 06:24:07] [INFO] 🔍 Analyzing changed file: main.py
+  [2025-09-14 06:24:07] [INFO] ✅ Found 2 functions/methods in main.py
+  [2025-09-14 06:24:07] [INFO] 🔍 Analyzing changed file: tests_pr/pr_generated_tests.py
+  [2025-09-14 06:24:07] [INFO] ✅ Found 11 functions/methods in tests_pr/pr_generated_tests.py
+  [2025-09-14 06:24:07] [INFO] 📊 Analysis Summary:
+  [2025-09-14 06:24:07] [INFO]    Total Functions/Methods: 13
+  [2025-09-14 06:24:07] [INFO]    Functions: 2, Methods: 11
+  [2025-09-14 06:24:07] [INFO]    Average Complexity: 1.0/10
+  [2025-09-14 06:24:07] [INFO] 🧠 Generating comprehensive test cases using llama-3.3-70b-versatile...
+  [2025-09-14 06:24:07] [INFO] 🤖 Generating test code (attempt 1/3)...
+  [2025-09-14 06:24:09] [SUCCESS] ✅ Generated syntactically valid test code
+  [2025-09-14 06:24:09] [INFO] ✔️ Formatted: pr_generated_tests.py
+  [2025-09-14 06:24:09] [SUCCESS] ✅ Generated and saved syntactically valid tests to /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-14 06:24:09] [INFO] 🏃 Executing generated tests with comprehensive coverage analysis...
+  [2025-09-14 06:24:09] [INFO] 🧪 Executing tests from /home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py
+  [2025-09-14 06:24:10] [ERROR] ❌ Tests failed.
+  [2025-09-14 06:24:10] [ERROR] --- Test Output ---
+  [2025-09-14 06:24:10] [ERROR] 
+  [2025-09-14 06:24:10] [ERROR] Traceback (most recent call last):
+  File "/home/runner/work/check-python-tests/check-python-tests/tests_pr/pr_generated_tests.py", line 9, in <module>
+    from main import add_numbers, is_prime, multiply_numbers
+ImportError: cannot import name 'is_prime' from 'main' (/home/runner/work/check-python-tests/check-python-tests/main.py)
+
+  [2025-09-14 06:24:10] [ERROR] -------------------
+  [2025-09-14 06:24:10] [INFO] 
+🎯 Code Coverage: 16%
+  [2025-09-14 06:24:10] [WARNING] 🔴 Low coverage, significant testing improvements needed
+  [2025-09-14 06:24:10] [INFO] 📄 JSON report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-14_06-24-10.json
+  [2025-09-14 06:24:10] [INFO] 📄 XML report saved: /home/runner/work/check-python-tests/check-python-tests/reports/test_automation_report_2025-09-14_06-24-10.xml
+
+============================================================
+Report completed at: 2025-09-14 06:24:10
