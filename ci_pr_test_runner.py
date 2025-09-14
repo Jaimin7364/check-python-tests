@@ -57,6 +57,7 @@ class FunctionInfo:
     complexity_score: int = 1
 
 @dataclass
+@dataclass
 class TestCaseResult:
     """Individual test case result"""
     name: str
@@ -851,6 +852,16 @@ Generate the complete test file now:"""
 
     def _generate_json_report(self, report: TestReport) -> str:
         """Enhanced JSON report generation"""
+        
+        # Convert test cases to dict explicitly
+        test_cases_dict = [tc.to_dict() for tc in report.test_cases]
+        
+        # Clean test_results to ensure JSON serialization
+        clean_test_results = dict(report.test_results)
+        if 'test_cases' in clean_test_results:
+            # Convert test cases in test_results to dictionaries
+            clean_test_results['test_cases'] = [tc.to_dict() if hasattr(tc, 'to_dict') else tc for tc in clean_test_results['test_cases']]
+        
         report_dict = {
             "title": "🚀 Python Project Test Automation Report",
             "generated": report.timestamp,
@@ -874,8 +885,8 @@ Generate the complete test file now:"""
                 }
                 for func in report.analyzed_functions
             ],
-            "test_results": report.test_results,
-            "test_cases": [test_case.to_dict() for test_case in report.test_cases],
+            "test_results": clean_test_results,
+            "test_cases": test_cases_dict,
             "coverage_metrics": report.coverage_metrics,
             "execution_logs": report.logs
         }
